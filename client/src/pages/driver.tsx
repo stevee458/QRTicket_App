@@ -89,6 +89,9 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
           qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0,
           showTorchButtonIfSupported: true,
+          videoConstraints: {
+            facingMode: "environment" // Use back camera for phones
+          }
         },
         false
       );
