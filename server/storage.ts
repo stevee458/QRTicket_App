@@ -33,6 +33,10 @@ export interface IStorage {
   deleteStudent(studentId: string): Promise<{ deletedParent: boolean }>;
   
   countSiblings(studentId: string): Promise<number>;
+  
+  updateQRCodeData(qrId: string, qrCodeData: string): Promise<void>;
+  
+  validateQRCode(studentId: string, version: number): Promise<{ valid: boolean; student?: Student }>;
 }
 
 export class DbStorage implements IStorage {
@@ -328,6 +332,40 @@ export class DbStorage implements IStorage {
     }
 
     return { deletedParent: false };
+  }
+
+  async updateQRCodeData(qrId: string, qrCodeData: string): Promise<void> {
+    await db
+      .update(qrCodeHistory)
+      .set({ qrCodeData })
+      .where(eq(qrCodeHistory.id, qrId));
+  }
+
+  async validateQRCode(studentId: string, version: number): Promise<{ valid: boolean; student?: Student }> {
+    const activeQR = await db.query.qrCodeHistory.findFirst({
+      where: and(
+        eq(qrCodeHistory.studentId, studentId),
+        eq(qrCodeHistory.isActive, true)
+      ),
+    });
+
+    if (!activeQR) {
+      return { valid: false };
+    }
+
+    if (activeQR.version !== version) {
+      return { valid: false };
+    }
+
+    const student = await db.query.students.findFirst({
+      where: eq(students.id, studentId),
+    });
+
+    if (!student) {
+      return { valid: false };
+    }
+
+    return { valid: true, student };
   }
 }
 

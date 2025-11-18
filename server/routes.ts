@@ -45,10 +45,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const studentsWithQRCodes = await Promise.all(
         result.students.map(async (student) => {
+          const qrRecord = await storage.createQRCode(student.id, "");
+
           const qrData = JSON.stringify({
             studentId: student.id,
             name: student.name,
             school: student.school,
+            version: qrRecord.version,
           });
           
           const qrCodeData = await QRCode.toDataURL(qrData, {
@@ -56,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             margin: 2,
           });
 
-          const qrRecord = await storage.createQRCode(student.id, qrCodeData);
+          await storage.updateQRCodeData(qrRecord.id, qrCodeData);
 
           return {
             ...student,
@@ -233,10 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      const qrRecord = await storage.regenerateQRCode(studentData.student.id, "");
+
       const qrData = JSON.stringify({
         studentId: studentData.student.id,
         name: studentData.student.name,
         school: studentData.student.school,
+        version: qrRecord.version,
       });
       
       const qrCodeData = await QRCode.toDataURL(qrData, {
@@ -244,7 +250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         margin: 2,
       });
 
-      await storage.regenerateQRCode(studentData.student.id, qrCodeData);
+      await storage.updateQRCodeData(qrRecord.id, qrCodeData);
 
       const updatedStudent = await storage.getStudentWithParent(req.params.id);
 
@@ -333,6 +339,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: "Failed to count siblings",
         });
       }
+    }
+  });
+
+  app.post("/api/qr/validate", async (req, res) => {
+    try {
+      const { studentId, version } = req.body;
+
+      if (!studentId || version === undefined) {
+        res.status(400).json({
+          success: false,
+          error: "studentId and version are required",
+        });
+        return;
+      }
+
+      const result = await storage.validateQRCode(studentId, version);
+
+      if (!result.valid) {
+        res.json({
+          success: false,
+          valid: false,
+          message: "Invalid or expired QR code",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        valid: true,
+        student: result.student,
+        message: "QR code validated successfully",
+      });
+    } catch (error) {
+      console.error("Validate QR code error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to validate QR code",
+      });
     }
   });
 
