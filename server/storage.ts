@@ -1,38 +1,65 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "../db";
+import { parents, students, type InsertParent, type Parent, type InsertStudent, type Student } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createRegistration(
+    parentData: InsertParent,
+    studentsData: Array<InsertStudent & { qrCode: string }>
+  ): Promise<{ parent: Parent; students: Student[] }>;
+  
+  getParentWithStudents(parentId: string): Promise<{ parent: Parent; students: Student[] } | null>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+export class DbStorage implements IStorage {
+  async createRegistration(
+    parentData: InsertParent,
+    studentsData: Array<InsertStudent & { qrCode: string }>
+  ): Promise<{ parent: Parent; students: Student[] }> {
+    const [parent] = await db.insert(parents).values(parentData).returning();
+    
+    const studentRecords = await db
+      .insert(students)
+      .values(
+        studentsData.map((student) => ({
+          name: student.name,
+          phone: student.phone,
+          email: student.email,
+          age: student.age,
+          school: student.school,
+          qrCode: student.qrCode,
+          parentId: parent.id,
+        }))
+      )
+      .returning();
 
-  constructor() {
-    this.users = new Map();
+    return { parent, students: studentRecords };
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
+  async getParentWithStudents(parentId: string): Promise<{ parent: Parent; students: Student[] } | null> {
+    const parent = await db.query.parents.findFirst({
+      where: eq(parents.id, parentId),
+      with: {
+        students: true,
+      },
+    });
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
+    if (!parent) {
+      return null;
+    }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    return {
+      parent: {
+        id: parent.id,
+        name: parent.name,
+        idNumber: parent.idNumber,
+        phone: parent.phone,
+        email: parent.email,
+        createdAt: parent.createdAt,
+      },
+      students: parent.students,
+    };
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DbStorage();
