@@ -67,6 +67,18 @@ export interface IStorage {
   updateDriver(driverId: string, data: Partial<InsertDriver>): Promise<Driver>;
   
   deleteDriver(driverId: string): Promise<void>;
+  
+  validateDriver(driverName: string, companyNumber: string): Promise<Driver | null>;
+  
+  getAllVehicles(): Promise<Vehicle[]>;
+  
+  getAllShifts(): Promise<Shift[]>;
+  
+  createQRScan(scanData: InsertQRScan): Promise<QRScan>;
+  
+  getStudentByQRCode(qrData: string): Promise<StudentWithQR | null>;
+  
+  getOnboardStudents(driverId: string, vehicleId: string, shiftId: string): Promise<StudentWithQR[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -511,6 +523,114 @@ export class DbStorage implements IStorage {
 
   async deleteDriver(driverId: string): Promise<void> {
     await db.delete(drivers).where(eq(drivers.id, driverId));
+  }
+
+  async validateDriver(driverName: string, companyNumber: string): Promise<Driver | null> {
+    const driver = await db.query.drivers.findFirst({
+      where: and(
+        eq(drivers.driverName, driverName),
+        eq(drivers.companyNumber, companyNumber)
+      ),
+    });
+    return driver || null;
+  }
+
+  async getAllVehicles(): Promise<Vehicle[]> {
+    const allVehicles = await db.query.vehicles.findMany();
+    return allVehicles;
+  }
+
+  async getAllShifts(): Promise<Shift[]> {
+    const allShifts = await db.query.shifts.findMany();
+    return allShifts;
+  }
+
+  async createQRScan(scanData: InsertQRScan): Promise<QRScan> {
+    const [scan] = await db.insert(qrScans).values(scanData).returning();
+    return scan;
+  }
+
+  async getStudentByQRCode(qrData: string): Promise<StudentWithQR | null> {
+    try {
+      const parsedQR = JSON.parse(qrData);
+      const studentId = parsedQR.studentId;
+      const version = parsedQR.version;
+
+      const validation = await this.validateQRCode(studentId, version);
+      
+      if (!validation.valid || !validation.student) {
+        return null;
+      }
+
+      const activeQR = await this.getActiveQRCode(studentId);
+      const status = await this.getStudentStatus(studentId);
+
+      return {
+        ...validation.student,
+        qrCode: activeQR?.qrCodeData,
+        qrCodeCreatedAt: activeQR?.createdAt,
+        status,
+      };
+    } catch (error) {
+      console.error("Error parsing QR code:", error);
+      return null;
+    }
+  }
+
+  async getOnboardStudents(driverId: string, vehicleId: string, shiftId: string): Promise<StudentWithQR[]> {
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+    const boardScans = await db.query.qrScans.findMany({
+      where: and(
+        eq(qrScans.driverId, driverId),
+        eq(qrScans.vehicleId, vehicleId),
+        eq(qrScans.shiftId, shiftId),
+        eq(qrScans.scanType, "On"),
+        gte(qrScans.scannedAt, fifteenMinutesAgo)
+      ),
+      with: {
+        student: true,
+      },
+      orderBy: [desc(qrScans.scannedAt)],
+    });
+
+    const alightScans = await db.query.qrScans.findMany({
+      where: and(
+        eq(qrScans.driverId, driverId),
+        eq(qrScans.vehicleId, vehicleId),
+        eq(qrScans.shiftId, shiftId),
+        eq(qrScans.scanType, "Off"),
+        gte(qrScans.scannedAt, fifteenMinutesAgo)
+      ),
+      with: {
+        student: true,
+      },
+      orderBy: [desc(qrScans.scannedAt)],
+    });
+
+    const alightedStudentIds = new Set(alightScans.map(scan => scan.studentId));
+
+    const onboardStudents = boardScans
+      .filter(scan => !alightedStudentIds.has(scan.studentId))
+      .map(scan => scan.student)
+      .filter((student, index, self) => 
+        index === self.findIndex(s => s.id === student.id)
+      );
+
+    const studentsWithQR = await Promise.all(
+      onboardStudents.map(async (student) => {
+        const activeQR = await this.getActiveQRCode(student.id);
+        const status = await this.getStudentStatus(student.id);
+        return {
+          ...student,
+          qrCode: activeQR?.qrCodeData,
+          qrCodeCreatedAt: activeQR?.createdAt,
+          status,
+        };
+      })
+    );
+
+    return studentsWithQR;
   }
 }
 

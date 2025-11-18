@@ -711,6 +711,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/driver/login", async (req, res) => {
+    try {
+      const { driverName, companyNumber } = req.body;
+      
+      if (!driverName || !companyNumber) {
+        res.status(400).json({
+          success: false,
+          error: "Driver name and company number are required",
+        });
+        return;
+      }
+
+      const driver = await storage.validateDriver(driverName, companyNumber);
+      
+      if (!driver) {
+        res.status(401).json({
+          success: false,
+          error: "Invalid credentials",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: driver,
+      });
+    } catch (error) {
+      console.error("Driver login error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Login failed",
+      });
+    }
+  });
+
+  app.get("/api/driver/vehicles", async (req, res) => {
+    try {
+      const vehicles = await storage.getAllVehicles();
+      
+      res.json({
+        success: true,
+        data: vehicles,
+      });
+    } catch (error) {
+      console.error("Get vehicles error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch vehicles",
+      });
+    }
+  });
+
+  app.get("/api/driver/shifts", async (req, res) => {
+    try {
+      const shifts = await storage.getAllShifts();
+      
+      res.json({
+        success: true,
+        data: shifts,
+      });
+    } catch (error) {
+      console.error("Get shifts error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch shifts",
+      });
+    }
+  });
+
+  app.post("/api/driver/scan", async (req, res) => {
+    try {
+      const scanData = insertQRScanSchema.parse(req.body);
+      
+      const scan = await storage.createQRScan(scanData);
+      
+      res.json({
+        success: true,
+        data: scan,
+      });
+    } catch (error) {
+      console.error("Create scan error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to record scan",
+        });
+      }
+    }
+  });
+
+  app.get("/api/driver/student/qr/:qrData", async (req, res) => {
+    try {
+      const qrData = decodeURIComponent(req.params.qrData);
+      const student = await storage.getStudentByQRCode(qrData);
+      
+      if (!student) {
+        res.status(404).json({
+          success: false,
+          error: "Student not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: student,
+      });
+    } catch (error) {
+      console.error("Get student by QR error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch student",
+      });
+    }
+  });
+
+  app.get("/api/driver/onboard/:driverId/:vehicleId/:shiftId", async (req, res) => {
+    try {
+      const { driverId, vehicleId, shiftId } = req.params;
+      const students = await storage.getOnboardStudents(driverId, vehicleId, shiftId);
+      
+      res.json({
+        success: true,
+        data: students,
+      });
+    } catch (error) {
+      console.error("Get onboard students error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch onboard students",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

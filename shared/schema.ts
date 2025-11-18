@@ -36,9 +36,13 @@ export const qrCodeHistory = pgTable("qr_code_history", {
 export const qrScans = pgTable("qr_scans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: varchar("student_id").notNull().references(() => students.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").references(() => drivers.id, { onDelete: 'set null' }),
+  vehicleId: varchar("vehicle_id").references(() => vehicles.id, { onDelete: 'set null' }),
+  shiftId: varchar("shift_id").references(() => shifts.id, { onDelete: 'set null' }),
   scanType: text("scan_type").notNull(),
   location: text("location"),
-  driverInfo: text("driver_info"),
+  forced: boolean("forced").notNull().default(false),
+  synced: boolean("synced").notNull().default(true),
   scannedAt: timestamp("scanned_at").defaultNow().notNull(),
 });
 
@@ -90,6 +94,30 @@ export const qrScansRelations = relations(qrScans, ({ one }) => ({
     fields: [qrScans.studentId],
     references: [students.id],
   }),
+  driver: one(drivers, {
+    fields: [qrScans.driverId],
+    references: [drivers.id],
+  }),
+  vehicle: one(vehicles, {
+    fields: [qrScans.vehicleId],
+    references: [vehicles.id],
+  }),
+  shift: one(shifts, {
+    fields: [qrScans.shiftId],
+    references: [shifts.id],
+  }),
+}));
+
+export const vehiclesRelations = relations(vehicles, ({ many }) => ({
+  scans: many(qrScans),
+}));
+
+export const shiftsRelations = relations(shifts, ({ many }) => ({
+  scans: many(qrScans),
+}));
+
+export const driversRelations = relations(drivers, ({ many }) => ({
+  scans: many(qrScans),
 }));
 
 export const insertParentSchema = createInsertSchema(parents).omit({
