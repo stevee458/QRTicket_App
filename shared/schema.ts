@@ -42,6 +42,29 @@ export const qrScans = pgTable("qr_scans", {
   scannedAt: timestamp("scanned_at").defaultNow().notNull(),
 });
 
+export const vehicles = pgTable("vehicles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  busNumber: text("bus_number").notNull(),
+  registrationNumber: text("registration_number").notNull(),
+  depotName: text("depot_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const shifts = pgTable("shifts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shiftNumber: text("shift_number").notNull(),
+  shiftTitle: text("shift_title").notNull(),
+  shiftDescription: text("shift_description").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const drivers = pgTable("drivers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyNumber: text("company_number").notNull(),
+  driverName: text("driver_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const parentsRelations = relations(parents, ({ many }) => ({
   students: many(students),
 }));
@@ -90,6 +113,21 @@ export const insertQRScanSchema = createInsertSchema(qrScans).omit({
   scannedAt: true,
 });
 
+export const insertVehicleSchema = createInsertSchema(vehicles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertShiftSchema = createInsertSchema(shifts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDriverSchema = createInsertSchema(drivers).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertParent = z.infer<typeof insertParentSchema>;
 export type Parent = typeof parents.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -98,3 +136,9 @@ export type InsertQRCodeHistory = z.infer<typeof insertQRCodeHistorySchema>;
 export type QRCodeHistory = typeof qrCodeHistory.$inferSelect;
 export type InsertQRScan = z.infer<typeof insertQRScanSchema>;
 export type QRScan = typeof qrScans.$inferSelect;
+export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
+export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertShift = z.infer<typeof insertShiftSchema>;
+export type Shift = typeof shifts.$inferSelect;
+export type InsertDriver = z.infer<typeof insertDriverSchema>;
+export type Driver = typeof drivers.$inferSelect;

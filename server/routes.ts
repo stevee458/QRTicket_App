@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertParentSchema, insertStudentSchema, insertQRScanSchema } from "@shared/schema";
+import { insertParentSchema, insertStudentSchema, insertQRScanSchema, insertVehicleSchema, insertShiftSchema, insertDriverSchema } from "@shared/schema";
 import { z } from "zod";
 import QRCode from "qrcode";
 
@@ -419,6 +419,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to get student status",
+      });
+    }
+  });
+
+  app.post("/api/vehicles", async (req, res) => {
+    try {
+      const vehicleData = insertVehicleSchema.parse(req.body);
+      const vehicle = await storage.createVehicle(vehicleData);
+
+      res.json({
+        success: true,
+        data: vehicle,
+      });
+    } catch (error) {
+      console.error("Create vehicle error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to create vehicle",
+        });
+      }
+    }
+  });
+
+  app.get("/api/search/vehicles", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm) {
+        res.status(400).json({
+          success: false,
+          error: "Search term is required",
+        });
+        return;
+      }
+
+      const results = await storage.searchVehicles(searchTerm);
+      
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (error) {
+      console.error("Search vehicles error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to search vehicles",
+      });
+    }
+  });
+
+  app.put("/api/vehicles/:id", async (req, res) => {
+    try {
+      const updateData = insertVehicleSchema.partial().parse(req.body);
+      const updated = await storage.updateVehicle(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update vehicle error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update vehicle",
+        });
+      }
+    }
+  });
+
+  app.delete("/api/vehicles/:id", async (req, res) => {
+    try {
+      await storage.deleteVehicle(req.params.id);
+      
+      res.json({
+        success: true,
+        message: "Vehicle deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete vehicle error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete vehicle",
+      });
+    }
+  });
+
+  app.post("/api/shifts", async (req, res) => {
+    try {
+      const shiftData = insertShiftSchema.parse(req.body);
+      const shift = await storage.createShift(shiftData);
+
+      res.json({
+        success: true,
+        data: shift,
+      });
+    } catch (error) {
+      console.error("Create shift error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to create shift",
+        });
+      }
+    }
+  });
+
+  app.get("/api/search/shifts", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm) {
+        res.status(400).json({
+          success: false,
+          error: "Search term is required",
+        });
+        return;
+      }
+
+      const results = await storage.searchShifts(searchTerm);
+      
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (error) {
+      console.error("Search shifts error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to search shifts",
+      });
+    }
+  });
+
+  app.put("/api/shifts/:id", async (req, res) => {
+    try {
+      const updateData = insertShiftSchema.partial().parse(req.body);
+      const updated = await storage.updateShift(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update shift error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update shift",
+        });
+      }
+    }
+  });
+
+  app.delete("/api/shifts/:id", async (req, res) => {
+    try {
+      await storage.deleteShift(req.params.id);
+      
+      res.json({
+        success: true,
+        message: "Shift deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete shift error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete shift",
+      });
+    }
+  });
+
+  app.post("/api/drivers", async (req, res) => {
+    try {
+      const driverData = insertDriverSchema.parse(req.body);
+      const driver = await storage.createDriver(driverData);
+
+      res.json({
+        success: true,
+        data: driver,
+      });
+    } catch (error) {
+      console.error("Create driver error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to create driver",
+        });
+      }
+    }
+  });
+
+  app.get("/api/search/drivers", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm) {
+        res.status(400).json({
+          success: false,
+          error: "Search term is required",
+        });
+        return;
+      }
+
+      const results = await storage.searchDrivers(searchTerm);
+      
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (error) {
+      console.error("Search drivers error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to search drivers",
+      });
+    }
+  });
+
+  app.put("/api/drivers/:id", async (req, res) => {
+    try {
+      const updateData = insertDriverSchema.partial().parse(req.body);
+      const updated = await storage.updateDriver(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update driver error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update driver",
+        });
+      }
+    }
+  });
+
+  app.delete("/api/drivers/:id", async (req, res) => {
+    try {
+      await storage.deleteDriver(req.params.id);
+      
+      res.json({
+        success: true,
+        message: "Driver deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete driver error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete driver",
       });
     }
   });

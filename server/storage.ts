@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { parents, students, qrCodeHistory, qrScans, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan } from "@shared/schema";
+import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver } from "@shared/schema";
 import { eq, ilike, desc, and, gte } from "drizzle-orm";
 
 export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
@@ -43,6 +43,30 @@ export interface IStorage {
   recordScan(scanData: InsertQRScan): Promise<QRScan>;
   
   getStudentStatus(studentId: string): Promise<StudentStatus>;
+  
+  createVehicle(data: InsertVehicle): Promise<Vehicle>;
+  
+  searchVehicles(searchTerm: string): Promise<Vehicle[]>;
+  
+  updateVehicle(vehicleId: string, data: Partial<InsertVehicle>): Promise<Vehicle>;
+  
+  deleteVehicle(vehicleId: string): Promise<void>;
+  
+  createShift(data: InsertShift): Promise<Shift>;
+  
+  searchShifts(searchTerm: string): Promise<Shift[]>;
+  
+  updateShift(shiftId: string, data: Partial<InsertShift>): Promise<Shift>;
+  
+  deleteShift(shiftId: string): Promise<void>;
+  
+  createDriver(data: InsertDriver): Promise<Driver>;
+  
+  searchDrivers(searchTerm: string): Promise<Driver[]>;
+  
+  updateDriver(driverId: string, data: Partial<InsertDriver>): Promise<Driver>;
+  
+  deleteDriver(driverId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -412,6 +436,81 @@ export class DbStorage implements IStorage {
     }
 
     return "Not Boarded";
+  }
+
+  async createVehicle(data: InsertVehicle): Promise<Vehicle> {
+    const [vehicle] = await db.insert(vehicles).values(data).returning();
+    return vehicle;
+  }
+
+  async searchVehicles(searchTerm: string): Promise<Vehicle[]> {
+    const results = await db.query.vehicles.findMany({
+      where: ilike(vehicles.busNumber, `%${searchTerm}%`),
+    });
+    return results;
+  }
+
+  async updateVehicle(vehicleId: string, data: Partial<InsertVehicle>): Promise<Vehicle> {
+    const [updated] = await db
+      .update(vehicles)
+      .set(data)
+      .where(eq(vehicles.id, vehicleId))
+      .returning();
+    return updated;
+  }
+
+  async deleteVehicle(vehicleId: string): Promise<void> {
+    await db.delete(vehicles).where(eq(vehicles.id, vehicleId));
+  }
+
+  async createShift(data: InsertShift): Promise<Shift> {
+    const [shift] = await db.insert(shifts).values(data).returning();
+    return shift;
+  }
+
+  async searchShifts(searchTerm: string): Promise<Shift[]> {
+    const results = await db.query.shifts.findMany({
+      where: ilike(shifts.shiftNumber, `%${searchTerm}%`),
+    });
+    return results;
+  }
+
+  async updateShift(shiftId: string, data: Partial<InsertShift>): Promise<Shift> {
+    const [updated] = await db
+      .update(shifts)
+      .set(data)
+      .where(eq(shifts.id, shiftId))
+      .returning();
+    return updated;
+  }
+
+  async deleteShift(shiftId: string): Promise<void> {
+    await db.delete(shifts).where(eq(shifts.id, shiftId));
+  }
+
+  async createDriver(data: InsertDriver): Promise<Driver> {
+    const [driver] = await db.insert(drivers).values(data).returning();
+    return driver;
+  }
+
+  async searchDrivers(searchTerm: string): Promise<Driver[]> {
+    const results = await db.query.drivers.findMany({
+      where: ilike(drivers.driverName, `%${searchTerm}%`),
+    });
+    return results;
+  }
+
+  async updateDriver(driverId: string, data: Partial<InsertDriver>): Promise<Driver> {
+    const [updated] = await db
+      .update(drivers)
+      .set(data)
+      .where(eq(drivers.id, driverId))
+      .returning();
+    return updated;
+  }
+
+  async deleteDriver(driverId: string): Promise<void> {
+    await db.delete(drivers).where(eq(drivers.id, driverId));
   }
 }
 
