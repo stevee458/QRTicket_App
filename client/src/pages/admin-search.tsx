@@ -74,11 +74,14 @@ interface Driver {
 }
 
 export default function AdminSearch() {
-  const [searchType, setSearchType] = useState<"parent" | "student">("parent");
+  const [searchType, setSearchType] = useState<"parent" | "student" | "driver" | "shift" | "vehicle">("parent");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingParent, setEditingParent] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<string | null>(null);
+  const [editingDriver, setEditingDriver] = useState<string | null>(null);
+  const [editingShift, setEditingShift] = useState<string | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<string | null>(null);
   const [parentFormData, setParentFormData] = useState<Partial<Parent>>({});
   const [studentFormData, setStudentFormData] = useState<Partial<Student>>({});
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
@@ -88,6 +91,12 @@ export default function AdminSearch() {
   const [showDeleteStudentDialog, setShowDeleteStudentDialog] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [siblingCount, setSiblingCount] = useState<number>(0);
+  const [showDeleteDriverDialog, setShowDeleteDriverDialog] = useState(false);
+  const [driverToDelete, setDriverToDelete] = useState<string | null>(null);
+  const [showDeleteShiftDialog, setShowDeleteShiftDialog] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState<string | null>(null);
+  const [showDeleteVehicleDialog, setShowDeleteVehicleDialog] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
   const [showTransportDialog, setShowTransportDialog] = useState(false);
   const [transportTab, setTransportTab] = useState<"vehicle" | "shift" | "driver">("vehicle");
   const [vehicleFormData, setVehicleFormData] = useState<Partial<Vehicle>>({});
@@ -121,6 +130,48 @@ export default function AdminSearch() {
       return await response.json();
     },
     enabled: searchType === "student" && searchQuery.length > 0,
+  });
+
+  const {
+    data: driverResults,
+    isLoading: loadingDrivers,
+    error: driverError,
+  } = useQuery<{ success: boolean; data: Driver[] }>({
+    queryKey: ["/api/search/drivers", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search/drivers?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Failed to search drivers");
+      return await response.json();
+    },
+    enabled: searchType === "driver" && searchQuery.length > 0,
+  });
+
+  const {
+    data: shiftResults,
+    isLoading: loadingShifts,
+    error: shiftError,
+  } = useQuery<{ success: boolean; data: Shift[] }>({
+    queryKey: ["/api/search/shifts", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search/shifts?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Failed to search shifts");
+      return await response.json();
+    },
+    enabled: searchType === "shift" && searchQuery.length > 0,
+  });
+
+  const {
+    data: vehicleResults,
+    isLoading: loadingVehicles,
+    error: vehicleError,
+  } = useQuery<{ success: boolean; data: Vehicle[] }>({
+    queryKey: ["/api/search/vehicles", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search/vehicles?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Failed to search vehicles");
+      return await response.json();
+    },
+    enabled: searchType === "vehicle" && searchQuery.length > 0,
   });
 
   const updateParentMutation = useMutation({
@@ -241,6 +292,7 @@ export default function AdminSearch() {
       return await response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles"] });
       setVehicleFormData({});
       setShowTransportDialog(false);
       toast({
@@ -263,6 +315,7 @@ export default function AdminSearch() {
       return await response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/shifts"] });
       setShiftFormData({});
       setShowTransportDialog(false);
       toast({
@@ -285,6 +338,7 @@ export default function AdminSearch() {
       return await response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/drivers"] });
       setDriverFormData({});
       setShowTransportDialog(false);
       toast({
@@ -296,6 +350,141 @@ export default function AdminSearch() {
       toast({
         title: "Error",
         description: "Failed to create driver",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateVehicleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Vehicle> }) => {
+      const response = await apiRequest("PUT", `/api/vehicles/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles"] });
+      setEditingVehicle(null);
+      toast({
+        title: "Success",
+        description: "Vehicle updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update vehicle",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateShiftMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Shift> }) => {
+      const response = await apiRequest("PUT", `/api/shifts/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/shifts"] });
+      setEditingShift(null);
+      toast({
+        title: "Success",
+        description: "Shift updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update shift",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateDriverMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Driver> }) => {
+      const response = await apiRequest("PUT", `/api/drivers/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/drivers"] });
+      setEditingDriver(null);
+      toast({
+        title: "Success",
+        description: "Driver updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update driver",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteVehicleMutation = useMutation({
+    mutationFn: async (vehicleId: string) => {
+      const response = await apiRequest("DELETE", `/api/vehicles/${vehicleId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles"] });
+      setEditingVehicle(null);
+      setVehicleFormData({});
+      toast({
+        title: "Success",
+        description: "Vehicle deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete vehicle",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteShiftMutation = useMutation({
+    mutationFn: async (shiftId: string) => {
+      const response = await apiRequest("DELETE", `/api/shifts/${shiftId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/shifts"] });
+      setEditingShift(null);
+      setShiftFormData({});
+      toast({
+        title: "Success",
+        description: "Shift deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete shift",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteDriverMutation = useMutation({
+    mutationFn: async (driverId: string) => {
+      const response = await apiRequest("DELETE", `/api/drivers/${driverId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/drivers"] });
+      setEditingDriver(null);
+      setDriverFormData({});
+      toast({
+        title: "Success",
+        description: "Driver deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete driver",
         variant: "destructive",
       });
     },
@@ -386,6 +575,72 @@ export default function AdminSearch() {
     setShowDeleteStudentDialog(false);
     setStudentToDelete(null);
     setSiblingCount(0);
+  };
+
+  const startEditDriver = (driver: Driver) => {
+    setEditingDriver(driver.id);
+    setDriverFormData(driver);
+  };
+
+  const saveDriver = (id: string) => {
+    updateDriverMutation.mutate({ id, data: driverFormData });
+  };
+
+  const handleDeleteDriverClick = (driverId: string) => {
+    setDriverToDelete(driverId);
+    setShowDeleteDriverDialog(true);
+  };
+
+  const confirmDeleteDriver = () => {
+    if (driverToDelete) {
+      deleteDriverMutation.mutate(driverToDelete);
+    }
+    setShowDeleteDriverDialog(false);
+    setDriverToDelete(null);
+  };
+
+  const startEditShift = (shift: Shift) => {
+    setEditingShift(shift.id);
+    setShiftFormData(shift);
+  };
+
+  const saveShift = (id: string) => {
+    updateShiftMutation.mutate({ id, data: shiftFormData });
+  };
+
+  const handleDeleteShiftClick = (shiftId: string) => {
+    setShiftToDelete(shiftId);
+    setShowDeleteShiftDialog(true);
+  };
+
+  const confirmDeleteShift = () => {
+    if (shiftToDelete) {
+      deleteShiftMutation.mutate(shiftToDelete);
+    }
+    setShowDeleteShiftDialog(false);
+    setShiftToDelete(null);
+  };
+
+  const startEditVehicle = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle.id);
+    setVehicleFormData(vehicle);
+  };
+
+  const saveVehicle = (id: string) => {
+    updateVehicleMutation.mutate({ id, data: vehicleFormData });
+  };
+
+  const handleDeleteVehicleClick = (vehicleId: string) => {
+    setVehicleToDelete(vehicleId);
+    setShowDeleteVehicleDialog(true);
+  };
+
+  const confirmDeleteVehicle = () => {
+    if (vehicleToDelete) {
+      deleteVehicleMutation.mutate(vehicleToDelete);
+    }
+    setShowDeleteVehicleDialog(false);
+    setVehicleToDelete(null);
   };
 
   const copyQRCode = async (qrCode: string, studentName: string) => {
@@ -483,19 +738,34 @@ export default function AdminSearch() {
             <CardTitle>Search</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as "parent" | "student")}>
+            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as "parent" | "student" | "driver" | "shift" | "vehicle")}>
               <TabsList className="mb-4">
                 <TabsTrigger value="parent" data-testid="tab-parent">
-                  Search by Parent
+                  Parent
                 </TabsTrigger>
                 <TabsTrigger value="student" data-testid="tab-student">
-                  Search by Student
+                  Student
+                </TabsTrigger>
+                <TabsTrigger value="driver" data-testid="tab-search-driver">
+                  Driver
+                </TabsTrigger>
+                <TabsTrigger value="shift" data-testid="tab-search-shift">
+                  Shift
+                </TabsTrigger>
+                <TabsTrigger value="vehicle" data-testid="tab-search-vehicle">
+                  Vehicle
                 </TabsTrigger>
               </TabsList>
 
               <div className="flex gap-2">
                 <Input
-                  placeholder={searchType === "parent" ? "Enter parent name..." : "Enter student name..."}
+                  placeholder={
+                    searchType === "parent" ? "Enter parent name..." :
+                    searchType === "student" ? "Enter student name..." :
+                    searchType === "driver" ? "Enter driver name or company number..." :
+                    searchType === "shift" ? "Enter shift number or title..." :
+                    "Enter bus number or registration number..."
+                  }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -542,6 +812,60 @@ export default function AdminSearch() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Failed to search students. Please try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {loadingDrivers && searchType === "driver" && (
+          <Card data-testid="card-loading">
+            <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching for drivers...
+            </CardContent>
+          </Card>
+        )}
+
+        {loadingShifts && searchType === "shift" && (
+          <Card data-testid="card-loading">
+            <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching for shifts...
+            </CardContent>
+          </Card>
+        )}
+
+        {loadingVehicles && searchType === "vehicle" && (
+          <Card data-testid="card-loading">
+            <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching for vehicles...
+            </CardContent>
+          </Card>
+        )}
+
+        {driverError && searchType === "driver" && (
+          <Alert variant="destructive" data-testid="alert-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to search drivers. Please try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {shiftError && searchType === "shift" && (
+          <Alert variant="destructive" data-testid="alert-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to search shifts. Please try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {vehicleError && searchType === "vehicle" && (
+          <Alert variant="destructive" data-testid="alert-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to search vehicles. Please try again.
             </AlertDescription>
           </Alert>
         )}
@@ -1093,6 +1417,336 @@ export default function AdminSearch() {
             )}
           </div>
         )}
+
+        {searchType === "driver" && driverResults?.data && !loadingDrivers && (
+          <div className="space-y-4">
+            {driverResults.data.length === 0 ? (
+              <Card data-testid="card-no-results">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No drivers found matching "{searchQuery}"
+                </CardContent>
+              </Card>
+            ) : (
+              driverResults.data.map((driver) => (
+                <Card key={driver.id} data-testid={`card-driver-${driver.id}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle>Driver: {driver.driverName}</CardTitle>
+                    {editingDriver === driver.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveDriver(driver.id)}
+                          disabled={updateDriverMutation.isPending}
+                          data-testid={`button-save-driver-${driver.id}`}
+                        >
+                          {updateDriverMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingDriver(null)}
+                          data-testid={`button-cancel-edit-driver-${driver.id}`}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditDriver(driver)}
+                        data-testid={`button-edit-driver-${driver.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {editingDriver === driver.id ? (
+                      <>
+                        <div className="grid gap-4 md:grid-cols-2 mb-6">
+                          <div>
+                            <Label htmlFor="driver-company">Company Number</Label>
+                            <Input
+                              id="driver-company"
+                              value={driverFormData.companyNumber || ""}
+                              onChange={(e) => setDriverFormData({ ...driverFormData, companyNumber: e.target.value })}
+                              data-testid="input-driver-company"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="driver-name">Driver Name</Label>
+                            <Input
+                              id="driver-name"
+                              value={driverFormData.driverName || ""}
+                              onChange={(e) => setDriverFormData({ ...driverFormData, driverName: e.target.value })}
+                              data-testid="input-driver-name"
+                            />
+                          </div>
+                        </div>
+                        <div className="border-t pt-4">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteDriverClick(driver.id)}
+                            data-testid={`button-delete-driver-${driver.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Driver
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="grid gap-2 text-sm">
+                        <div data-testid={`text-driver-company-${driver.id}`}>
+                          <span className="text-muted-foreground">Company Number:</span> {driver.companyNumber}
+                        </div>
+                        <div data-testid={`text-driver-name-${driver.id}`}>
+                          <span className="text-muted-foreground">Name:</span> {driver.driverName}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {searchType === "shift" && shiftResults?.data && !loadingShifts && (
+          <div className="space-y-4">
+            {shiftResults.data.length === 0 ? (
+              <Card data-testid="card-no-results">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No shifts found matching "{searchQuery}"
+                </CardContent>
+              </Card>
+            ) : (
+              shiftResults.data.map((shift) => (
+                <Card key={shift.id} data-testid={`card-shift-${shift.id}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle>Shift: {shift.shiftTitle}</CardTitle>
+                    {editingShift === shift.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveShift(shift.id)}
+                          disabled={updateShiftMutation.isPending}
+                          data-testid={`button-save-shift-${shift.id}`}
+                        >
+                          {updateShiftMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingShift(null)}
+                          data-testid={`button-cancel-edit-shift-${shift.id}`}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditShift(shift)}
+                        data-testid={`button-edit-shift-${shift.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {editingShift === shift.id ? (
+                      <>
+                        <div className="grid gap-4 mb-6">
+                          <div>
+                            <Label htmlFor="shift-number">Shift Number</Label>
+                            <Input
+                              id="shift-number"
+                              value={shiftFormData.shiftNumber || ""}
+                              onChange={(e) => setShiftFormData({ ...shiftFormData, shiftNumber: e.target.value })}
+                              data-testid="input-shift-number-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="shift-title">Shift Title</Label>
+                            <Input
+                              id="shift-title"
+                              value={shiftFormData.shiftTitle || ""}
+                              onChange={(e) => setShiftFormData({ ...shiftFormData, shiftTitle: e.target.value })}
+                              data-testid="input-shift-title-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="shift-description">Shift Description</Label>
+                            <Textarea
+                              id="shift-description"
+                              value={shiftFormData.shiftDescription || ""}
+                              onChange={(e) => setShiftFormData({ ...shiftFormData, shiftDescription: e.target.value })}
+                              data-testid="input-shift-description-edit"
+                            />
+                          </div>
+                        </div>
+                        <div className="border-t pt-4">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteShiftClick(shift.id)}
+                            data-testid={`button-delete-shift-${shift.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Shift
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="grid gap-2 text-sm">
+                        <div data-testid={`text-shift-number-${shift.id}`}>
+                          <span className="text-muted-foreground">Shift Number:</span> {shift.shiftNumber}
+                        </div>
+                        <div data-testid={`text-shift-title-${shift.id}`}>
+                          <span className="text-muted-foreground">Title:</span> {shift.shiftTitle}
+                        </div>
+                        <div data-testid={`text-shift-description-${shift.id}`}>
+                          <span className="text-muted-foreground">Description:</span> {shift.shiftDescription}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {searchType === "vehicle" && vehicleResults?.data && !loadingVehicles && (
+          <div className="space-y-4">
+            {vehicleResults.data.length === 0 ? (
+              <Card data-testid="card-no-results">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No vehicles found matching "{searchQuery}"
+                </CardContent>
+              </Card>
+            ) : (
+              vehicleResults.data.map((vehicle) => (
+                <Card key={vehicle.id} data-testid={`card-vehicle-${vehicle.id}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle>Vehicle: {vehicle.busNumber}</CardTitle>
+                    {editingVehicle === vehicle.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveVehicle(vehicle.id)}
+                          disabled={updateVehicleMutation.isPending}
+                          data-testid={`button-save-vehicle-${vehicle.id}`}
+                        >
+                          {updateVehicleMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingVehicle(null)}
+                          data-testid={`button-cancel-edit-vehicle-${vehicle.id}`}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditVehicle(vehicle)}
+                        data-testid={`button-edit-vehicle-${vehicle.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {editingVehicle === vehicle.id ? (
+                      <>
+                        <div className="grid gap-4 md:grid-cols-2 mb-6">
+                          <div>
+                            <Label htmlFor="vehicle-bus">Bus Number</Label>
+                            <Input
+                              id="vehicle-bus"
+                              value={vehicleFormData.busNumber || ""}
+                              onChange={(e) => setVehicleFormData({ ...vehicleFormData, busNumber: e.target.value })}
+                              data-testid="input-vehicle-bus-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="vehicle-registration">Registration Number</Label>
+                            <Input
+                              id="vehicle-registration"
+                              value={vehicleFormData.registrationNumber || ""}
+                              onChange={(e) => setVehicleFormData({ ...vehicleFormData, registrationNumber: e.target.value })}
+                              data-testid="input-vehicle-registration-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="vehicle-depot">Depot Name</Label>
+                            <Input
+                              id="vehicle-depot"
+                              value={vehicleFormData.depotName || ""}
+                              onChange={(e) => setVehicleFormData({ ...vehicleFormData, depotName: e.target.value })}
+                              data-testid="input-vehicle-depot-edit"
+                            />
+                          </div>
+                        </div>
+                        <div className="border-t pt-4">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteVehicleClick(vehicle.id)}
+                            data-testid={`button-delete-vehicle-${vehicle.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Vehicle
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="grid gap-2 text-sm">
+                        <div data-testid={`text-vehicle-bus-${vehicle.id}`}>
+                          <span className="text-muted-foreground">Bus Number:</span> {vehicle.busNumber}
+                        </div>
+                        <div data-testid={`text-vehicle-registration-${vehicle.id}`}>
+                          <span className="text-muted-foreground">Registration Number:</span> {vehicle.registrationNumber}
+                        </div>
+                        <div data-testid={`text-vehicle-depot-${vehicle.id}`}>
+                          <span className="text-muted-foreground">Depot Name:</span> {vehicle.depotName}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
@@ -1162,6 +1816,72 @@ export default function AdminSearch() {
               data-testid="button-confirm-delete-student"
             >
               Delete Student
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDriverDialog} onOpenChange={setShowDeleteDriverDialog}>
+        <AlertDialogContent data-testid="dialog-delete-driver">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Driver</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete this driver record. This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-driver">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteDriver}
+              data-testid="button-confirm-delete-driver"
+            >
+              Delete Driver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteShiftDialog} onOpenChange={setShowDeleteShiftDialog}>
+        <AlertDialogContent data-testid="dialog-delete-shift">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Shift</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete this shift record. This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-shift">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteShift}
+              data-testid="button-confirm-delete-shift"
+            >
+              Delete Shift
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteVehicleDialog} onOpenChange={setShowDeleteVehicleDialog}>
+        <AlertDialogContent data-testid="dialog-delete-vehicle">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Vehicle</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete this vehicle record. This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-vehicle">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteVehicle}
+              data-testid="button-confirm-delete-vehicle"
+            >
+              Delete Vehicle
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
