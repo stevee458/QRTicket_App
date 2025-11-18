@@ -43,6 +43,7 @@ interface StudentWithStatus {
 }
 
 interface PendingScan {
+  id: string; // Unique identifier for this scan
   studentId: string;
   scanType: "On" | "Off";
   location: string;
@@ -83,6 +84,7 @@ export default function DriverPage() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
   const periodicSyncRef = useRef<NodeJS.Timeout | null>(null);
+  const syncInFlightRef = useRef<boolean>(false);
 
   // Load saved session from localStorage
   useEffect(() => {
@@ -124,32 +126,50 @@ export default function DriverPage() {
     };
   }, []);
 
-  // Auto-sync logic
+  // Auto-sync logic - setup periodic sync when online
   useEffect(() => {
-    if (isOnline && pendingScans.length > 0 && !isSyncing) {
-      // Clear existing timers
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-      }
-      if (periodicSyncRef.current) {
-        clearInterval(periodicSyncRef.current);
-      }
-      
+    // Clear any existing periodic sync
+    if (periodicSyncRef.current) {
+      clearInterval(periodicSyncRef.current);
+      periodicSyncRef.current = null;
+    }
+    
+    if (isOnline && !isSyncing) {
       // Start periodic sync every 3 minutes
       periodicSyncRef.current = setInterval(() => {
-        syncPendingScans();
+        // Check pendingScans at execution time, not closure time
+        const savedScans = localStorage.getItem("pendingScans");
+        if (savedScans) {
+          try {
+            const scans = JSON.parse(savedScans);
+            if (scans.length > 0) {
+              syncPendingScans();
+            }
+          } catch (error) {
+            console.error("Error checking pending scans:", error);
+          }
+        }
       }, 3 * 60 * 1000);
     }
     
     return () => {
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-      }
       if (periodicSyncRef.current) {
         clearInterval(periodicSyncRef.current);
       }
     };
-  }, [isOnline, pendingScans.length, isSyncing]);
+  }, [isOnline, isSyncing]);
+  
+  // Trigger immediate sync when coming back online with pending scans
+  useEffect(() => {
+    if (isOnline && pendingScans.length > 0 && !isSyncing) {
+      // Small delay to ensure connection is stable
+      const immediateSync = setTimeout(() => {
+        syncPendingScans();
+      }, 2000);
+      
+      return () => clearTimeout(immediateSync);
+    }
+  }, [isOnline]);
 
   const [loggedInDriver, setLoggedInDriver] = useState<Driver | null>(null);
 
@@ -318,8 +338,9 @@ export default function DriverPage() {
         return;
       }
 
-      // Create scan record
+      // Create scan record with unique ID
       const scan: PendingScan = {
+        id: crypto.randomUUID(),
         studentId,
         scanType: scanMode === "Board" ? "On" : "Off",
         location: "GPS: Placeholder", // TODO: Get actual GPS
@@ -354,40 +375,72 @@ export default function DriverPage() {
           refetchOnboard();
           setShowQRScanner(false);
           setScanMode(null);
-          
-          // Start 30-second timer for next auto-sync
-          if (syncTimerRef.current) {
-            clearTimeout(syncTimerRef.current);
-          }
-          syncTimerRef.current = setTimeout(() => {
-            if (pendingScans.length > 0) {
-              syncPendingScans();
-            }
-          }, 30000);
         } catch (error) {
           // If online submit fails, queue for later
-          const updatedPending = [...pendingScans, scan];
-          setPendingScans(updatedPending);
-          localStorage.setItem("pendingScans", JSON.stringify(updatedPending));
+          setPendingScans(prev => {
+            const updated = [...prev, scan];
+            localStorage.setItem("pendingScans", JSON.stringify(updated));
+            return updated;
+          });
           
           toast({
             title: "Queued for Sync",
             description: `${message} - Will sync when connection improves`,
           });
           
+          // Start 30-second timer for next auto-sync attempt
+          if (syncTimerRef.current) {
+            clearTimeout(syncTimerRef.current);
+          }
+          syncTimerRef.current = setTimeout(() => {
+            // Check pendingScans from localStorage at execution time
+            const savedScans = localStorage.getItem("pendingScans");
+            if (savedScans) {
+              try {
+                const scans = JSON.parse(savedScans);
+                if (scans.length > 0) {
+                  syncPendingScans();
+                }
+              } catch (err) {
+                console.error("Error checking pending scans for sync:", err);
+              }
+            }
+          }, 30000);
+          
           setShowQRScanner(false);
           setScanMode(null);
         }
       } else {
         // Offline mode - queue scan
-        const updatedPending = [...pendingScans, scan];
-        setPendingScans(updatedPending);
-        localStorage.setItem("pendingScans", JSON.stringify(updatedPending));
+        setPendingScans(prev => {
+          const updated = [...prev, scan];
+          localStorage.setItem("pendingScans", JSON.stringify(updated));
+          return updated;
+        });
         
         toast({
           title: "Offline Scan Saved",
           description: `${message} - Will sync when online`,
         });
+        
+        // Set 30-second timer for when connection returns
+        if (syncTimerRef.current) {
+          clearTimeout(syncTimerRef.current);
+        }
+        syncTimerRef.current = setTimeout(() => {
+          // Check if we're online and have pending scans at execution time
+          const savedScans = localStorage.getItem("pendingScans");
+          if (navigator.onLine && savedScans) {
+            try {
+              const scans = JSON.parse(savedScans);
+              if (scans.length > 0) {
+                syncPendingScans();
+              }
+            } catch (err) {
+              console.error("Error checking pending scans for sync:", err);
+            }
+          }
+        }, 30000);
         
         setShowQRScanner(false);
         setScanMode(null);
@@ -403,18 +456,45 @@ export default function DriverPage() {
   };
 
   const syncPendingScans = async () => {
-    if (!session || pendingScans.length === 0 || !isOnline || isSyncing) return;
+    // Prevent concurrent execution
+    if (syncInFlightRef.current) {
+      return;
+    }
+    
+    // Read fresh data from localStorage to avoid stale closures
+    const savedSession = localStorage.getItem("driverSession");
+    const savedScans = localStorage.getItem("pendingScans");
+    
+    if (!savedSession || !savedScans || !navigator.onLine) {
+      return;
+    }
 
+    let currentSession: DriverSession;
+    let currentScans: PendingScan[];
+    
+    try {
+      currentSession = JSON.parse(savedSession);
+      currentScans = JSON.parse(savedScans);
+    } catch (error) {
+      console.error("Error parsing saved data:", error);
+      return;
+    }
+
+    if (currentScans.length === 0) {
+      return;
+    }
+
+    syncInFlightRef.current = true;
     setIsSyncing(true);
 
     try {
       const results = await Promise.allSettled(
-        pendingScans.map(scan => 
+        currentScans.map(scan => 
           apiRequest("POST", "/api/driver/scan", {
             studentId: scan.studentId,
-            driverId: session.driver.id,
-            vehicleId: session.vehicle.id,
-            shiftId: session.shift.id,
+            driverId: currentSession.driver.id,
+            vehicleId: currentSession.vehicle.id,
+            shiftId: currentSession.shift.id,
             scanType: scan.scanType,
             location: scan.location,
             forced: scan.forced,
@@ -427,14 +507,57 @@ export default function DriverPage() {
       const failedCount = results.filter(r => r.status === "rejected").length;
 
       if (successCount > 0) {
-        // Remove successful scans
+        // Identify which scans failed from the original batch
         const failedIndices = results
           .map((r, i) => r.status === "rejected" ? i : -1)
           .filter(i => i !== -1);
         
-        const remainingScans = pendingScans.filter((_, i) => failedIndices.includes(i));
-        setPendingScans(remainingScans);
-        localStorage.setItem("pendingScans", JSON.stringify(remainingScans));
+        const failedScansFromBatch = currentScans.filter((_, i) => failedIndices.includes(i));
+        
+        // Read fresh localStorage to get any scans added during sync
+        const freshScans = localStorage.getItem("pendingScans");
+        let newlyAddedScans: PendingScan[] = [];
+        
+        if (freshScans) {
+          try {
+            const freshScansArray = JSON.parse(freshScans);
+            // Find scans that weren't in the original batch (by unique ID)
+            const originalIds = new Set(currentScans.map(s => s.id));
+            newlyAddedScans = freshScansArray.filter((s: PendingScan) => 
+              !originalIds.has(s.id)
+            );
+          } catch (error) {
+            console.error("Error reading fresh scans:", error);
+          }
+        }
+        
+        // Atomic merge: Read one final time before writing to catch any last-second additions
+        let finalMergedScans: PendingScan[];
+        const lastMinuteScans = localStorage.getItem("pendingScans");
+        
+        if (lastMinuteScans) {
+          try {
+            const lastMinuteArray = JSON.parse(lastMinuteScans);
+            // Rebuild the queue: keep scans not in the successfully-synced batch
+            const successfulIds = new Set(
+              currentScans
+                .filter((_, i) => !failedIndices.includes(i))
+                .map(s => s.id)
+            );
+            finalMergedScans = lastMinuteArray.filter((s: PendingScan) => 
+              !successfulIds.has(s.id)
+            );
+          } catch (error) {
+            console.error("Error in final merge:", error);
+            // Fallback to previous logic
+            finalMergedScans = [...failedScansFromBatch, ...newlyAddedScans];
+          }
+        } else {
+          finalMergedScans = failedScansFromBatch;
+        }
+        
+        setPendingScans(finalMergedScans);
+        localStorage.setItem("pendingScans", JSON.stringify(finalMergedScans));
         
         setLastSyncTime(new Date());
         
@@ -453,6 +576,7 @@ export default function DriverPage() {
         variant: "destructive",
       });
     } finally {
+      syncInFlightRef.current = false;
       setIsSyncing(false);
     }
   };
