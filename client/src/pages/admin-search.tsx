@@ -642,22 +642,6 @@ export default function AdminSearch() {
                                     />
                                   </div>
                                 </div>
-                                <div className="mt-3 flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleRegenerateClick(student.id)}
-                                    disabled={regenerateQRMutation.isPending}
-                                    data-testid={`button-regenerate-qr-${student.id}`}
-                                  >
-                                    {regenerateQRMutation.isPending ? (
-                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <RefreshCw className="w-4 h-4 mr-2" />
-                                    )}
-                                    Regenerate QR Code
-                                  </Button>
-                                </div>
                               </>
                             ) : (
                               <div>
