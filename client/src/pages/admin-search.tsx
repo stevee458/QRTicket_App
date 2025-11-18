@@ -759,25 +759,15 @@ export default function AdminSearch() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEditStudent(result.student)}
-                          data-testid={`button-edit-student-${result.student.id}`}
-                        >
-                          <Edit2 className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteStudentClick(result.student)}
-                          data-testid={`button-delete-student-${result.student.id}`}
-                        >
-                          Delete Student
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditStudent(result.student)}
+                        data-testid={`button-edit-student-${result.student.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
                     )}
                   </CardHeader>
                   <CardContent>
@@ -886,6 +876,16 @@ export default function AdminSearch() {
                             </div>
                           </div>
                         )}
+                        <div className="mt-6 pt-4 border-t">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteStudentClick(result.student)}
+                            data-testid={`button-delete-student-${result.student.id}`}
+                          >
+                            Delete Student
+                          </Button>
+                        </div>
                       </>
                     ) : (
                       <>
