@@ -27,6 +27,12 @@ export interface IStorage {
   getActiveQRCode(studentId: string): Promise<QRCodeHistory | null>;
   
   regenerateQRCode(studentId: string, qrCodeData: string): Promise<QRCodeHistory>;
+  
+  deleteParent(parentId: string): Promise<void>;
+  
+  deleteStudent(studentId: string): Promise<{ deletedParent: boolean }>;
+  
+  countSiblings(studentId: string): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -273,6 +279,47 @@ export class DbStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  async deleteParent(parentId: string): Promise<void> {
+    await db.delete(parents).where(eq(parents.id, parentId));
+  }
+
+  async countSiblings(studentId: string): Promise<number> {
+    const student = await db.query.students.findFirst({
+      where: eq(students.id, studentId),
+    });
+
+    if (!student) {
+      return 0;
+    }
+
+    const siblings = await db.query.students.findMany({
+      where: eq(students.parentId, student.parentId),
+    });
+
+    return siblings.length - 1;
+  }
+
+  async deleteStudent(studentId: string): Promise<{ deletedParent: boolean }> {
+    const student = await db.query.students.findFirst({
+      where: eq(students.id, studentId),
+    });
+
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    const siblingCount = await this.countSiblings(studentId);
+
+    await db.delete(students).where(eq(students.id, studentId));
+
+    if (siblingCount === 0) {
+      await db.delete(parents).where(eq(parents.id, student.parentId));
+      return { deletedParent: true };
+    }
+
+    return { deletedParent: false };
   }
 }
 

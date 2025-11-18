@@ -261,6 +261,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/parents/:id", async (req, res) => {
+    try {
+      await storage.deleteParent(req.params.id);
+      
+      res.json({
+        success: true,
+        message: "Parent and associated students deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete parent error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete parent",
+      });
+    }
+  });
+
+  app.delete("/api/students/:id", async (req, res) => {
+    try {
+      const result = await storage.deleteStudent(req.params.id);
+      
+      res.json({
+        success: true,
+        message: result.deletedParent 
+          ? "Student and parent deleted successfully" 
+          : "Student deleted successfully",
+        deletedParent: result.deletedParent,
+      });
+    } catch (error) {
+      console.error("Delete student error:", error);
+      if (error instanceof Error && error.message === "Student not found") {
+        res.status(404).json({
+          success: false,
+          error: "Student not found",
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to delete student",
+        });
+      }
+    }
+  });
+
+  app.get("/api/students/:id/siblings-count", async (req, res) => {
+    try {
+      const count = await storage.countSiblings(req.params.id);
+      
+      res.json({
+        success: true,
+        count,
+      });
+    } catch (error) {
+      console.error("Count siblings error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to count siblings",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

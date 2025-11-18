@@ -60,6 +60,11 @@ export default function AdminSearch() {
   const [studentFormData, setStudentFormData] = useState<Partial<Student>>({});
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [studentToRegenerate, setStudentToRegenerate] = useState<string | null>(null);
+  const [showDeleteParentDialog, setShowDeleteParentDialog] = useState(false);
+  const [parentToDelete, setParentToDelete] = useState<string | null>(null);
+  const [showDeleteStudentDialog, setShowDeleteStudentDialog] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [siblingCount, setSiblingCount] = useState<number>(0);
   const { toast } = useToast();
 
   const {
@@ -156,6 +161,52 @@ export default function AdminSearch() {
     },
   });
 
+  const deleteParentMutation = useMutation({
+    mutationFn: async (parentId: string) => {
+      const response = await apiRequest("DELETE", `/api/parents/${parentId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/parents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/students"] });
+      toast({
+        title: "Success",
+        description: "Parent and associated students deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete parent",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteStudentMutation = useMutation({
+    mutationFn: async (studentId: string) => {
+      const response = await apiRequest("DELETE", `/api/students/${studentId}`, {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/parents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/students"] });
+      toast({
+        title: "Success",
+        description: data.deletedParent 
+          ? "Student and parent deleted successfully" 
+          : "Student deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete student",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSearch = () => {
     if (searchTerm.trim()) {
       setSearchQuery(searchTerm.trim());
@@ -191,6 +242,47 @@ export default function AdminSearch() {
     }
     setShowRegenerateDialog(false);
     setStudentToRegenerate(null);
+  };
+
+  const handleDeleteParentClick = (parentId: string) => {
+    setParentToDelete(parentId);
+    setShowDeleteParentDialog(true);
+  };
+
+  const confirmDeleteParent = () => {
+    if (parentToDelete) {
+      deleteParentMutation.mutate(parentToDelete);
+    }
+    setShowDeleteParentDialog(false);
+    setParentToDelete(null);
+  };
+
+  const handleDeleteStudentClick = async (student: Student) => {
+    try {
+      const response = await fetch(`/api/students/${student.id}/siblings-count`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setSiblingCount(data.count);
+        setStudentToDelete(student);
+        setShowDeleteStudentDialog(true);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to check student siblings",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmDeleteStudent = () => {
+    if (studentToDelete) {
+      deleteStudentMutation.mutate(studentToDelete.id);
+    }
+    setShowDeleteStudentDialog(false);
+    setStudentToDelete(null);
+    setSiblingCount(0);
   };
 
   const copyQRCode = async (qrCode: string, studentName: string) => {
@@ -348,15 +440,25 @@ export default function AdminSearch() {
                         </Button>
                       </div>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => startEditParent(result.parent)}
-                        data-testid={`button-edit-parent-${result.parent.id}`}
-                      >
-                        <Edit2 className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEditParent(result.parent)}
+                          data-testid={`button-edit-parent-${result.parent.id}`}
+                        >
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteParentClick(result.parent.id)}
+                          data-testid={`button-delete-parent-${result.parent.id}`}
+                        >
+                          Delete Parent
+                        </Button>
+                      </div>
                     )}
                   </CardHeader>
                   <CardContent>
@@ -644,15 +746,25 @@ export default function AdminSearch() {
                         </Button>
                       </div>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => startEditStudent(result.student)}
-                        data-testid={`button-edit-student-${result.student.id}`}
-                      >
-                        <Edit2 className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEditStudent(result.student)}
+                          data-testid={`button-edit-student-${result.student.id}`}
+                        >
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteStudentClick(result.student)}
+                          data-testid={`button-delete-student-${result.student.id}`}
+                        >
+                          Delete Student
+                        </Button>
+                      </div>
                     )}
                   </CardHeader>
                   <CardContent>
@@ -829,6 +941,54 @@ export default function AdminSearch() {
               data-testid="button-confirm-regenerate"
             >
               Regenerate QR Code
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteParentDialog} onOpenChange={setShowDeleteParentDialog}>
+        <AlertDialogContent data-testid="dialog-delete-parent">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Parent</AlertDialogTitle>
+            <AlertDialogDescription>
+              Warning: This action will delete the parent and all associated students. 
+              This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-parent">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteParent}
+              data-testid="button-confirm-delete-parent"
+            >
+              Delete Parent
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteStudentDialog} onOpenChange={setShowDeleteStudentDialog}>
+        <AlertDialogContent data-testid="dialog-delete-student">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Student</AlertDialogTitle>
+            <AlertDialogDescription>
+              {siblingCount > 0 
+                ? "The student can be deleted but the associated Parent will remain as there are other Students associated to this parent."
+                : "Warning: This action will also delete the associated Parent as this is the only student."}
+              {" "}This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-student">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteStudent}
+              data-testid="button-confirm-delete-student"
+            >
+              Delete Student
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
