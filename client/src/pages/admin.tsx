@@ -1,5 +1,4 @@
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
 
 export default function Admin() {
   return (
@@ -11,25 +10,30 @@ export default function Admin() {
         
         <div className="grid gap-4 md:grid-cols-2">
           <Link href="/admin/register">
-            <a className="block">
-              <div className="p-6 border rounded-lg hover-elevate">
-                <h2 className="text-xl font-semibold mb-2">Register Students</h2>
-                <p className="text-muted-foreground">
-                  Register new parents and students, generate QR codes
-                </p>
-              </div>
-            </a>
+            <div className="p-6 border rounded-lg hover-elevate cursor-pointer">
+              <h2 className="text-xl font-semibold mb-2">Register Students</h2>
+              <p className="text-muted-foreground">
+                Register new parents and students, generate QR codes
+              </p>
+            </div>
+          </Link>
+
+          <Link href="/admin/register-transport">
+            <div className="p-6 border rounded-lg hover-elevate cursor-pointer">
+              <h2 className="text-xl font-semibold mb-2">Register Transport</h2>
+              <p className="text-muted-foreground">
+                Register vehicles, shifts, and drivers for transport management
+              </p>
+            </div>
           </Link>
           
           <Link href="/admin/search">
-            <a className="block">
-              <div className="p-6 border rounded-lg hover-elevate">
-                <h2 className="text-xl font-semibold mb-2">Search & Edit</h2>
-                <p className="text-muted-foreground">
-                  Search and edit parent and student records
-                </p>
-              </div>
-            </a>
+            <div className="p-6 border rounded-lg hover-elevate cursor-pointer">
+              <h2 className="text-xl font-semibold mb-2">Search & Edit</h2>
+              <p className="text-muted-foreground">
+                Search and edit all records (parents, students, transport)
+              </p>
+            </div>
           </Link>
         </div>
       </div>
