@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Download } from "lucide-react";
+import { StudentStatusIndicator } from "@/components/StudentStatusIndicator";
 
 interface Student {
   name: string;
@@ -118,6 +119,10 @@ export default function SuccessPage({
                 <p className="text-xs text-muted-foreground mb-4">
                   Age: {student.age} • {student.email}
                 </p>
+
+                <div className="mb-4 p-3 bg-muted/30 rounded-md text-left">
+                  <StudentStatusIndicator studentId={student.id} />
+                </div>
 
                 <Button
                   variant="outline"

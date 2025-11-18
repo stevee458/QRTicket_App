@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { StudentStatusIndicator } from "@/components/StudentStatusIndicator";
 
 interface Parent {
   id: string;
@@ -665,6 +666,9 @@ export default function AdminSearch() {
                                   <div data-testid={`text-student-phone-${student.id}`}>Phone: {student.phone}</div>
                                   <div data-testid={`text-student-email-${student.id}`}>Email: {student.email}</div>
                                 </div>
+                                <div className="mb-3 p-3 bg-muted/30 rounded-md">
+                                  <StudentStatusIndicator studentId={student.id} />
+                                </div>
                                 {student.qrCode && (
                                   <div className="mt-3 space-y-2">
                                     <div className="flex items-center justify-between">
@@ -898,6 +902,9 @@ export default function AdminSearch() {
                           <div data-testid={`text-student-email-${result.student.id}`}>
                             <span className="text-muted-foreground">Email:</span> {result.student.email}
                           </div>
+                        </div>
+                        <div className="mb-4 p-3 bg-muted/30 rounded-md">
+                          <StudentStatusIndicator studentId={result.student.id} />
                         </div>
                         {result.student.qrCode && (
                           <div className="mb-4 space-y-2">
