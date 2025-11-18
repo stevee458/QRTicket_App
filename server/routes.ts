@@ -114,6 +114,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/search/parents", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm) {
+        res.status(400).json({
+          success: false,
+          error: "Search term is required",
+        });
+        return;
+      }
+
+      const results = await storage.searchParents(searchTerm);
+      
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (error) {
+      console.error("Search parents error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to search parents",
+      });
+    }
+  });
+
+  app.get("/api/search/students", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm) {
+        res.status(400).json({
+          success: false,
+          error: "Search term is required",
+        });
+        return;
+      }
+
+      const results = await storage.searchStudents(searchTerm);
+      
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (error) {
+      console.error("Search students error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to search students",
+      });
+    }
+  });
+
+  app.put("/api/parent/:id", async (req, res) => {
+    try {
+      const updateData = insertParentSchema.partial().parse(req.body);
+      const updated = await storage.updateParent(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update parent error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update parent",
+        });
+      }
+    }
+  });
+
+  app.put("/api/student/:id", async (req, res) => {
+    try {
+      const updateData = insertStudentSchema.partial().parse(req.body);
+      const updated = await storage.updateStudent(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update student error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update student",
+        });
+      }
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

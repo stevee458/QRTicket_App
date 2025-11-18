@@ -1,0 +1,608 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Search, Edit2, Save, X, Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface Parent {
+  id: string;
+  name: string;
+  idNumber: string;
+  phone: string;
+  email: string;
+}
+
+interface Student {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  age: number;
+  school: string;
+  parentId: string;
+}
+
+interface ParentResult {
+  parent: Parent;
+  students: Student[];
+}
+
+interface StudentResult {
+  student: Student;
+  parent: Parent;
+}
+
+export default function AdminSearch() {
+  const [searchType, setSearchType] = useState<"parent" | "student">("parent");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingParent, setEditingParent] = useState<string | null>(null);
+  const [editingStudent, setEditingStudent] = useState<string | null>(null);
+  const [parentFormData, setParentFormData] = useState<Partial<Parent>>({});
+  const [studentFormData, setStudentFormData] = useState<Partial<Student>>({});
+  const { toast } = useToast();
+
+  const {
+    data: parentResults,
+    isLoading: loadingParents,
+    error: parentError,
+  } = useQuery<{ success: boolean; data: ParentResult[] }>({
+    queryKey: ["/api/search/parents", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search/parents?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Failed to search parents");
+      return await response.json();
+    },
+    enabled: searchType === "parent" && searchQuery.length > 0,
+  });
+
+  const {
+    data: studentResults,
+    isLoading: loadingStudents,
+    error: studentError,
+  } = useQuery<{ success: boolean; data: StudentResult[] }>({
+    queryKey: ["/api/search/students", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search/students?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Failed to search students");
+      return await response.json();
+    },
+    enabled: searchType === "student" && searchQuery.length > 0,
+  });
+
+  const updateParentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Parent> }) => {
+      const response = await apiRequest("PUT", `/api/parent/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/parents"] });
+      setEditingParent(null);
+      toast({
+        title: "Success",
+        description: "Parent information updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update parent information",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateStudentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Student> }) => {
+      const response = await apiRequest("PUT", `/api/student/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/students"] });
+      setEditingStudent(null);
+      toast({
+        title: "Success",
+        description: "Student information updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update student information",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSearch = () => {
+    if (searchTerm.trim()) {
+      setSearchQuery(searchTerm.trim());
+    }
+  };
+
+  const startEditParent = (parent: Parent) => {
+    setEditingParent(parent.id);
+    setParentFormData(parent);
+  };
+
+  const saveParent = (id: string) => {
+    updateParentMutation.mutate({ id, data: parentFormData });
+  };
+
+  const startEditStudent = (student: Student) => {
+    setEditingStudent(student.id);
+    setStudentFormData(student);
+  };
+
+  const saveStudent = (id: string) => {
+    updateStudentMutation.mutate({ id, data: studentFormData });
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6" data-testid="text-search-title">
+          Search & Edit Records
+        </h1>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as "parent" | "student")}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="parent" data-testid="tab-parent">
+                  Search by Parent
+                </TabsTrigger>
+                <TabsTrigger value="student" data-testid="tab-student">
+                  Search by Student
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="flex gap-2">
+                <Input
+                  placeholder={searchType === "parent" ? "Enter parent name..." : "Enter student name..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  data-testid="input-search"
+                />
+                <Button onClick={handleSearch} data-testid="button-search">
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
+                </Button>
+              </div>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {loadingParents && searchType === "parent" && (
+          <Card data-testid="card-loading">
+            <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching for parents...
+            </CardContent>
+          </Card>
+        )}
+
+        {loadingStudents && searchType === "student" && (
+          <Card data-testid="card-loading">
+            <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching for students...
+            </CardContent>
+          </Card>
+        )}
+
+        {parentError && searchType === "parent" && (
+          <Alert variant="destructive" data-testid="alert-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to search parents. Please try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {studentError && searchType === "student" && (
+          <Alert variant="destructive" data-testid="alert-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to search students. Please try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {searchType === "parent" && parentResults?.data && !loadingParents && (
+          <div className="space-y-4">
+            {parentResults.data.length === 0 ? (
+              <Card data-testid="card-no-results">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No parents found matching "{searchQuery}"
+                </CardContent>
+              </Card>
+            ) : (
+              parentResults.data.map((result) => (
+                <Card key={result.parent.id} data-testid={`card-parent-${result.parent.id}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle>Parent: {result.parent.name}</CardTitle>
+                    {editingParent === result.parent.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveParent(result.parent.id)}
+                          disabled={updateParentMutation.isPending}
+                          data-testid={`button-save-parent-${result.parent.id}`}
+                        >
+                          {updateParentMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingParent(null)}
+                          data-testid={`button-cancel-edit-parent-${result.parent.id}`}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditParent(result.parent)}
+                        data-testid={`button-edit-parent-${result.parent.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {editingParent === result.parent.id ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <Label htmlFor="parent-name">Name</Label>
+                          <Input
+                            id="parent-name"
+                            value={parentFormData.name || ""}
+                            onChange={(e) => setParentFormData({ ...parentFormData, name: e.target.value })}
+                            data-testid="input-parent-name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="parent-id">ID Number</Label>
+                          <Input
+                            id="parent-id"
+                            value={parentFormData.idNumber || ""}
+                            onChange={(e) => setParentFormData({ ...parentFormData, idNumber: e.target.value })}
+                            data-testid="input-parent-id"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="parent-phone">Phone</Label>
+                          <Input
+                            id="parent-phone"
+                            value={parentFormData.phone || ""}
+                            onChange={(e) => setParentFormData({ ...parentFormData, phone: e.target.value })}
+                            data-testid="input-parent-phone"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="parent-email">Email</Label>
+                          <Input
+                            id="parent-email"
+                            type="email"
+                            value={parentFormData.email || ""}
+                            onChange={(e) => setParentFormData({ ...parentFormData, email: e.target.value })}
+                            data-testid="input-parent-email"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-2 md:grid-cols-2 text-sm">
+                        <div data-testid={`text-parent-id-${result.parent.id}`}>
+                          <span className="text-muted-foreground">ID Number:</span> {result.parent.idNumber}
+                        </div>
+                        <div data-testid={`text-parent-phone-${result.parent.id}`}>
+                          <span className="text-muted-foreground">Phone:</span> {result.parent.phone}
+                        </div>
+                        <div className="md:col-span-2" data-testid={`text-parent-email-${result.parent.id}`}>
+                          <span className="text-muted-foreground">Email:</span> {result.parent.email}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6">
+                      <h3 className="font-semibold mb-3" data-testid={`text-students-count-${result.parent.id}`}>
+                        Students ({result.students.length})
+                      </h3>
+                      <div className="space-y-3">
+                        {result.students.map((student) => (
+                          <div
+                            key={student.id}
+                            className="p-4 border rounded-lg"
+                            data-testid={`card-student-${student.id}`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="font-medium" data-testid={`text-student-name-${student.id}`}>
+                                {student.name}
+                              </h4>
+                              {editingStudent === student.id ? (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => saveStudent(student.id)}
+                                    disabled={updateStudentMutation.isPending}
+                                    data-testid={`button-save-student-${student.id}`}
+                                  >
+                                    {updateStudentMutation.isPending ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Save className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setEditingStudent(null)}
+                                    data-testid={`button-cancel-edit-student-${student.id}`}
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => startEditStudent(student)}
+                                  data-testid={`button-edit-student-${student.id}`}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                            {editingStudent === student.id ? (
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                  <Label htmlFor={`student-name-${student.id}`} className="text-xs">
+                                    Name
+                                  </Label>
+                                  <Input
+                                    id={`student-name-${student.id}`}
+                                    value={studentFormData.name || ""}
+                                    onChange={(e) => setStudentFormData({ ...studentFormData, name: e.target.value })}
+                                    data-testid="input-student-name"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`student-phone-${student.id}`} className="text-xs">
+                                    Phone
+                                  </Label>
+                                  <Input
+                                    id={`student-phone-${student.id}`}
+                                    value={studentFormData.phone || ""}
+                                    onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
+                                    data-testid="input-student-phone"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`student-email-${student.id}`} className="text-xs">
+                                    Email
+                                  </Label>
+                                  <Input
+                                    id={`student-email-${student.id}`}
+                                    type="email"
+                                    value={studentFormData.email || ""}
+                                    onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
+                                    data-testid="input-student-email"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`student-age-${student.id}`} className="text-xs">
+                                    Age
+                                  </Label>
+                                  <Input
+                                    id={`student-age-${student.id}`}
+                                    type="number"
+                                    value={studentFormData.age || ""}
+                                    onChange={(e) =>
+                                      setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
+                                    }
+                                    data-testid="input-student-age"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <Label htmlFor={`student-school-${student.id}`} className="text-xs">
+                                    School
+                                  </Label>
+                                  <Input
+                                    id={`student-school-${student.id}`}
+                                    value={studentFormData.school || ""}
+                                    onChange={(e) =>
+                                      setStudentFormData({ ...studentFormData, school: e.target.value })
+                                    }
+                                    data-testid="input-student-school"
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid gap-1 text-sm text-muted-foreground">
+                                <div data-testid={`text-student-details-${student.id}`}>
+                                  Age: {student.age} | School: {student.school}
+                                </div>
+                                <div data-testid={`text-student-phone-${student.id}`}>Phone: {student.phone}</div>
+                                <div data-testid={`text-student-email-${student.id}`}>Email: {student.email}</div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {searchType === "student" && studentResults?.data && !loadingStudents && (
+          <div className="space-y-4">
+            {studentResults.data.length === 0 ? (
+              <Card data-testid="card-no-results">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No students found matching "{searchQuery}"
+                </CardContent>
+              </Card>
+            ) : (
+              studentResults.data.map((result) => (
+                <Card key={result.student.id} data-testid={`card-student-result-${result.student.id}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle>Student: {result.student.name}</CardTitle>
+                    {editingStudent === result.student.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveStudent(result.student.id)}
+                          disabled={updateStudentMutation.isPending}
+                          data-testid={`button-save-student-${result.student.id}`}
+                        >
+                          {updateStudentMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingStudent(null)}
+                          data-testid={`button-cancel-edit-student-${result.student.id}`}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditStudent(result.student)}
+                        data-testid={`button-edit-student-${result.student.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {editingStudent === result.student.id ? (
+                      <div className="grid gap-4 md:grid-cols-2 mb-6">
+                        <div>
+                          <Label htmlFor="result-student-name">Name</Label>
+                          <Input
+                            id="result-student-name"
+                            value={studentFormData.name || ""}
+                            onChange={(e) => setStudentFormData({ ...studentFormData, name: e.target.value })}
+                            data-testid="input-student-name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="result-student-phone">Phone</Label>
+                          <Input
+                            id="result-student-phone"
+                            value={studentFormData.phone || ""}
+                            onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
+                            data-testid="input-student-phone"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="result-student-email">Email</Label>
+                          <Input
+                            id="result-student-email"
+                            type="email"
+                            value={studentFormData.email || ""}
+                            onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
+                            data-testid="input-student-email"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="result-student-age">Age</Label>
+                          <Input
+                            id="result-student-age"
+                            type="number"
+                            value={studentFormData.age || ""}
+                            onChange={(e) =>
+                              setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
+                            }
+                            data-testid="input-student-age"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label htmlFor="result-student-school">School</Label>
+                          <Input
+                            id="result-student-school"
+                            value={studentFormData.school || ""}
+                            onChange={(e) => setStudentFormData({ ...studentFormData, school: e.target.value })}
+                            data-testid="input-student-school"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-2 md:grid-cols-2 text-sm mb-6">
+                        <div data-testid={`text-student-age-${result.student.id}`}>
+                          <span className="text-muted-foreground">Age:</span> {result.student.age}
+                        </div>
+                        <div data-testid={`text-student-school-${result.student.id}`}>
+                          <span className="text-muted-foreground">School:</span> {result.student.school}
+                        </div>
+                        <div data-testid={`text-student-phone-${result.student.id}`}>
+                          <span className="text-muted-foreground">Phone:</span> {result.student.phone}
+                        </div>
+                        <div data-testid={`text-student-email-${result.student.id}`}>
+                          <span className="text-muted-foreground">Email:</span> {result.student.email}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-t pt-4">
+                      <h3 className="font-semibold mb-2" data-testid="text-parent-info-header">
+                        Parent Information
+                      </h3>
+                      <div className="grid gap-2 md:grid-cols-2 text-sm">
+                        <div data-testid={`text-parent-name-${result.parent.id}`}>
+                          <span className="text-muted-foreground">Name:</span> {result.parent.name}
+                        </div>
+                        <div data-testid={`text-parent-id-${result.parent.id}`}>
+                          <span className="text-muted-foreground">ID Number:</span> {result.parent.idNumber}
+                        </div>
+                        <div data-testid={`text-parent-phone-${result.parent.id}`}>
+                          <span className="text-muted-foreground">Phone:</span> {result.parent.phone}
+                        </div>
+                        <div data-testid={`text-parent-email-${result.parent.id}`}>
+                          <span className="text-muted-foreground">Email:</span> {result.parent.email}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
