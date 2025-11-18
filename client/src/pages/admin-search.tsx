@@ -830,22 +830,58 @@ export default function AdminSearch() {
                             />
                           </div>
                         </div>
-                        <div className="mb-6 flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRegenerateClick(result.student.id)}
-                            disabled={regenerateQRMutation.isPending}
-                            data-testid={`button-regenerate-qr-${result.student.id}`}
-                          >
-                            {regenerateQRMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                            )}
-                            Regenerate QR Code
-                          </Button>
-                        </div>
+                        {result.student.qrCode && (
+                          <div className="mb-6 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">
+                                Current QR Code
+                              </Label>
+                              <span className="text-xs text-muted-foreground" data-testid={`text-qr-timestamp-edit-${result.student.id}`}>
+                                Created: {formatQRTimestamp(result.student.qrCodeCreatedAt)}
+                              </span>
+                            </div>
+                            <img
+                              src={result.student.qrCode}
+                              alt={`QR Code for ${result.student.name}`}
+                              className="mt-1 border rounded"
+                              data-testid={`img-qr-edit-${result.student.id}`}
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRegenerateClick(result.student.id)}
+                                disabled={regenerateQRMutation.isPending}
+                                data-testid={`button-regenerate-qr-${result.student.id}`}
+                              >
+                                {regenerateQRMutation.isPending ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                )}
+                                Regenerate QR Code
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copyQRCode(result.student.qrCode!, result.student.name)}
+                                data-testid={`button-copy-qr-edit-${result.student.id}`}
+                              >
+                                <Copy className="w-4 h-4 mr-2" />
+                                Copy QR
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => downloadQRCode(result.student.qrCode!, result.student.name)}
+                                data-testid={`button-download-qr-edit-${result.student.id}`}
+                              >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download QR
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
