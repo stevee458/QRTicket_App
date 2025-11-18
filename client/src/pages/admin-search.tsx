@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Edit2, Save, X, Loader2, AlertCircle } from "lucide-react";
+import { Search, Edit2, Save, X, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Parent {
@@ -26,6 +26,7 @@ interface Student {
   age: number;
   school: string;
   parentId: string;
+  qrCode: string;
 }
 
 interface ParentResult {
@@ -115,6 +116,28 @@ export default function AdminSearch() {
       toast({
         title: "Error",
         description: "Failed to update student information",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const regenerateQRMutation = useMutation({
+    mutationFn: async (studentId: string) => {
+      const response = await apiRequest("POST", `/api/student/${studentId}/regenerate-qr`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/parents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/students"] });
+      toast({
+        title: "Success",
+        description: "QR code regenerated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate QR code",
         variant: "destructive",
       });
     },
@@ -374,76 +397,107 @@ export default function AdminSearch() {
                               )}
                             </div>
                             {editingStudent === student.id ? (
-                              <div className="grid gap-3 md:grid-cols-2">
-                                <div>
-                                  <Label htmlFor={`student-name-${student.id}`} className="text-xs">
-                                    Name
-                                  </Label>
-                                  <Input
-                                    id={`student-name-${student.id}`}
-                                    value={studentFormData.name || ""}
-                                    onChange={(e) => setStudentFormData({ ...studentFormData, name: e.target.value })}
-                                    data-testid="input-student-name"
-                                  />
+                              <>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div>
+                                    <Label htmlFor={`student-name-${student.id}`} className="text-xs">
+                                      Name
+                                    </Label>
+                                    <Input
+                                      id={`student-name-${student.id}`}
+                                      value={studentFormData.name || ""}
+                                      onChange={(e) => setStudentFormData({ ...studentFormData, name: e.target.value })}
+                                      data-testid="input-student-name"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`student-phone-${student.id}`} className="text-xs">
+                                      Phone
+                                    </Label>
+                                    <Input
+                                      id={`student-phone-${student.id}`}
+                                      value={studentFormData.phone || ""}
+                                      onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
+                                      data-testid="input-student-phone"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`student-email-${student.id}`} className="text-xs">
+                                      Email
+                                    </Label>
+                                    <Input
+                                      id={`student-email-${student.id}`}
+                                      type="email"
+                                      value={studentFormData.email || ""}
+                                      onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
+                                      data-testid="input-student-email"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`student-age-${student.id}`} className="text-xs">
+                                      Age
+                                    </Label>
+                                    <Input
+                                      id={`student-age-${student.id}`}
+                                      type="number"
+                                      value={studentFormData.age || ""}
+                                      onChange={(e) =>
+                                        setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
+                                      }
+                                      data-testid="input-student-age"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-2">
+                                    <Label htmlFor={`student-school-${student.id}`} className="text-xs">
+                                      School
+                                    </Label>
+                                    <Input
+                                      id={`student-school-${student.id}`}
+                                      value={studentFormData.school || ""}
+                                      onChange={(e) =>
+                                        setStudentFormData({ ...studentFormData, school: e.target.value })
+                                      }
+                                      data-testid="input-student-school"
+                                    />
+                                  </div>
                                 </div>
-                                <div>
-                                  <Label htmlFor={`student-phone-${student.id}`} className="text-xs">
-                                    Phone
-                                  </Label>
-                                  <Input
-                                    id={`student-phone-${student.id}`}
-                                    value={studentFormData.phone || ""}
-                                    onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
-                                    data-testid="input-student-phone"
-                                  />
+                                <div className="mt-3 flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => regenerateQRMutation.mutate(student.id)}
+                                    disabled={regenerateQRMutation.isPending}
+                                    data-testid={`button-regenerate-qr-${student.id}`}
+                                  >
+                                    {regenerateQRMutation.isPending ? (
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="w-4 h-4 mr-2" />
+                                    )}
+                                    Regenerate QR Code
+                                  </Button>
                                 </div>
-                                <div>
-                                  <Label htmlFor={`student-email-${student.id}`} className="text-xs">
-                                    Email
-                                  </Label>
-                                  <Input
-                                    id={`student-email-${student.id}`}
-                                    type="email"
-                                    value={studentFormData.email || ""}
-                                    onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
-                                    data-testid="input-student-email"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor={`student-age-${student.id}`} className="text-xs">
-                                    Age
-                                  </Label>
-                                  <Input
-                                    id={`student-age-${student.id}`}
-                                    type="number"
-                                    value={studentFormData.age || ""}
-                                    onChange={(e) =>
-                                      setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
-                                    }
-                                    data-testid="input-student-age"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <Label htmlFor={`student-school-${student.id}`} className="text-xs">
-                                    School
-                                  </Label>
-                                  <Input
-                                    id={`student-school-${student.id}`}
-                                    value={studentFormData.school || ""}
-                                    onChange={(e) =>
-                                      setStudentFormData({ ...studentFormData, school: e.target.value })
-                                    }
-                                    data-testid="input-student-school"
-                                  />
-                                </div>
-                              </div>
+                              </>
                             ) : (
-                              <div className="grid gap-1 text-sm text-muted-foreground">
-                                <div data-testid={`text-student-details-${student.id}`}>
-                                  Age: {student.age} | School: {student.school}
+                              <div>
+                                <div className="grid gap-1 text-sm text-muted-foreground mb-3">
+                                  <div data-testid={`text-student-details-${student.id}`}>
+                                    Age: {student.age} | School: {student.school}
+                                  </div>
+                                  <div data-testid={`text-student-phone-${student.id}`}>Phone: {student.phone}</div>
+                                  <div data-testid={`text-student-email-${student.id}`}>Email: {student.email}</div>
                                 </div>
-                                <div data-testid={`text-student-phone-${student.id}`}>Phone: {student.phone}</div>
-                                <div data-testid={`text-student-email-${student.id}`}>Email: {student.email}</div>
+                                {student.qrCode && (
+                                  <div className="mt-3">
+                                    <Label className="text-xs text-muted-foreground">QR Code</Label>
+                                    <img
+                                      src={student.qrCode}
+                                      alt={`QR Code for ${student.name}`}
+                                      className="mt-1 border rounded"
+                                      data-testid={`img-qr-${student.id}`}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -509,72 +563,103 @@ export default function AdminSearch() {
                   </CardHeader>
                   <CardContent>
                     {editingStudent === result.student.id ? (
-                      <div className="grid gap-4 md:grid-cols-2 mb-6">
-                        <div>
-                          <Label htmlFor="result-student-name">Name</Label>
-                          <Input
-                            id="result-student-name"
-                            value={studentFormData.name || ""}
-                            onChange={(e) => setStudentFormData({ ...studentFormData, name: e.target.value })}
-                            data-testid="input-student-name"
-                          />
+                      <>
+                        <div className="grid gap-4 md:grid-cols-2 mb-6">
+                          <div>
+                            <Label htmlFor="result-student-name">Name</Label>
+                            <Input
+                              id="result-student-name"
+                              value={studentFormData.name || ""}
+                              onChange={(e) => setStudentFormData({ ...studentFormData, name: e.target.value })}
+                              data-testid="input-student-name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="result-student-phone">Phone</Label>
+                            <Input
+                              id="result-student-phone"
+                              value={studentFormData.phone || ""}
+                              onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
+                              data-testid="input-student-phone"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="result-student-email">Email</Label>
+                            <Input
+                              id="result-student-email"
+                              type="email"
+                              value={studentFormData.email || ""}
+                              onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
+                              data-testid="input-student-email"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="result-student-age">Age</Label>
+                            <Input
+                              id="result-student-age"
+                              type="number"
+                              value={studentFormData.age || ""}
+                              onChange={(e) =>
+                                setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
+                              }
+                              data-testid="input-student-age"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="result-student-school">School</Label>
+                            <Input
+                              id="result-student-school"
+                              value={studentFormData.school || ""}
+                              onChange={(e) => setStudentFormData({ ...studentFormData, school: e.target.value })}
+                              data-testid="input-student-school"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="result-student-phone">Phone</Label>
-                          <Input
-                            id="result-student-phone"
-                            value={studentFormData.phone || ""}
-                            onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
-                            data-testid="input-student-phone"
-                          />
+                        <div className="mb-6 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => regenerateQRMutation.mutate(result.student.id)}
+                            disabled={regenerateQRMutation.isPending}
+                            data-testid={`button-regenerate-qr-${result.student.id}`}
+                          >
+                            {regenerateQRMutation.isPending ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                            )}
+                            Regenerate QR Code
+                          </Button>
                         </div>
-                        <div>
-                          <Label htmlFor="result-student-email">Email</Label>
-                          <Input
-                            id="result-student-email"
-                            type="email"
-                            value={studentFormData.email || ""}
-                            onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
-                            data-testid="input-student-email"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="result-student-age">Age</Label>
-                          <Input
-                            id="result-student-age"
-                            type="number"
-                            value={studentFormData.age || ""}
-                            onChange={(e) =>
-                              setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
-                            }
-                            data-testid="input-student-age"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label htmlFor="result-student-school">School</Label>
-                          <Input
-                            id="result-student-school"
-                            value={studentFormData.school || ""}
-                            onChange={(e) => setStudentFormData({ ...studentFormData, school: e.target.value })}
-                            data-testid="input-student-school"
-                          />
-                        </div>
-                      </div>
+                      </>
                     ) : (
-                      <div className="grid gap-2 md:grid-cols-2 text-sm mb-6">
-                        <div data-testid={`text-student-age-${result.student.id}`}>
-                          <span className="text-muted-foreground">Age:</span> {result.student.age}
+                      <>
+                        <div className="grid gap-2 md:grid-cols-2 text-sm mb-4">
+                          <div data-testid={`text-student-age-${result.student.id}`}>
+                            <span className="text-muted-foreground">Age:</span> {result.student.age}
+                          </div>
+                          <div data-testid={`text-student-school-${result.student.id}`}>
+                            <span className="text-muted-foreground">School:</span> {result.student.school}
+                          </div>
+                          <div data-testid={`text-student-phone-${result.student.id}`}>
+                            <span className="text-muted-foreground">Phone:</span> {result.student.phone}
+                          </div>
+                          <div data-testid={`text-student-email-${result.student.id}`}>
+                            <span className="text-muted-foreground">Email:</span> {result.student.email}
+                          </div>
                         </div>
-                        <div data-testid={`text-student-school-${result.student.id}`}>
-                          <span className="text-muted-foreground">School:</span> {result.student.school}
-                        </div>
-                        <div data-testid={`text-student-phone-${result.student.id}`}>
-                          <span className="text-muted-foreground">Phone:</span> {result.student.phone}
-                        </div>
-                        <div data-testid={`text-student-email-${result.student.id}`}>
-                          <span className="text-muted-foreground">Email:</span> {result.student.email}
-                        </div>
-                      </div>
+                        {result.student.qrCode && (
+                          <div className="mb-4">
+                            <Label className="text-xs text-muted-foreground">QR Code</Label>
+                            <img
+                              src={result.student.qrCode}
+                              alt={`QR Code for ${result.student.name}`}
+                              className="mt-1 border rounded"
+                              data-testid={`img-qr-${result.student.id}`}
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     <div className="border-t pt-4">

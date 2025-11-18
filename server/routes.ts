@@ -220,6 +220,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/student/:id/regenerate-qr", async (req, res) => {
+    try {
+      const studentData = await storage.getStudentWithParent(req.params.id);
+      
+      if (!studentData) {
+        res.status(404).json({
+          success: false,
+          error: "Student not found",
+        });
+        return;
+      }
+
+      const qrData = JSON.stringify({
+        studentId: studentData.student.id,
+        name: studentData.student.name,
+        school: studentData.student.school,
+      });
+      
+      const qrCode = await QRCode.toDataURL(qrData, {
+        width: 200,
+        margin: 2,
+      });
+
+      await storage.updateStudentQRCode(studentData.student.id, qrCode);
+
+      const updatedStudent = await storage.getStudentWithParent(req.params.id);
+
+      res.json({
+        success: true,
+        data: updatedStudent,
+      });
+    } catch (error) {
+      console.error("Regenerate QR code error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to regenerate QR code",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
