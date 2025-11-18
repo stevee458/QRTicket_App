@@ -1,8 +1,10 @@
 import { db } from "../db";
-import { parents, students, qrCodeHistory, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory } from "@shared/schema";
-import { eq, ilike, desc, and } from "drizzle-orm";
+import { parents, students, qrCodeHistory, qrScans, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan } from "@shared/schema";
+import { eq, ilike, desc, and, gte } from "drizzle-orm";
 
-export type StudentWithQR = Student & { qrCode?: string; qrCodeCreatedAt?: Date };
+export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
+
+export type StudentWithQR = Student & { qrCode?: string; qrCodeCreatedAt?: Date; status?: StudentStatus };
 
 export interface IStorage {
   createRegistration(
@@ -37,6 +39,10 @@ export interface IStorage {
   updateQRCodeData(qrId: string, qrCodeData: string): Promise<void>;
   
   validateQRCode(studentId: string, version: number): Promise<{ valid: boolean; student?: Student }>;
+  
+  recordScan(scanData: InsertQRScan): Promise<QRScan>;
+  
+  getStudentStatus(studentId: string): Promise<StudentStatus>;
 }
 
 export class DbStorage implements IStorage {
@@ -366,6 +372,46 @@ export class DbStorage implements IStorage {
     }
 
     return { valid: true, student };
+  }
+
+  async recordScan(scanData: InsertQRScan): Promise<QRScan> {
+    const [scan] = await db.insert(qrScans).values(scanData).returning();
+    return scan;
+  }
+
+  async getStudentStatus(studentId: string): Promise<StudentStatus> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayScans = await db.query.qrScans.findMany({
+      where: and(
+        eq(qrScans.studentId, studentId),
+        gte(qrScans.scannedAt, today)
+      ),
+      orderBy: [desc(qrScans.scannedAt)],
+    });
+
+    if (todayScans.length === 0) {
+      return "Not Boarded";
+    }
+
+    const lastScan = todayScans[0];
+    
+    if (lastScan.scanType === "On") {
+      return "Boarded";
+    }
+
+    if (lastScan.scanType === "Off") {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      
+      if (lastScan.scannedAt > fifteenMinutesAgo) {
+        return "Alighted";
+      } else {
+        return "Not Boarded";
+      }
+    }
+
+    return "Not Boarded";
   }
 }
 

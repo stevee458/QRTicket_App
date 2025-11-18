@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertParentSchema, insertStudentSchema } from "@shared/schema";
+import { insertParentSchema, insertStudentSchema, insertQRScanSchema } from "@shared/schema";
 import { z } from "zod";
 import QRCode from "qrcode";
 
@@ -376,6 +376,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to validate QR code",
+      });
+    }
+  });
+
+  app.post("/api/scans", async (req, res) => {
+    try {
+      const scanData = insertQRScanSchema.parse(req.body);
+      const scan = await storage.recordScan(scanData);
+
+      res.json({
+        success: true,
+        data: scan,
+      });
+    } catch (error) {
+      console.error("Record scan error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to record scan",
+        });
+      }
+    }
+  });
+
+  app.get("/api/students/:id/status", async (req, res) => {
+    try {
+      const status = await storage.getStudentStatus(req.params.id);
+
+      res.json({
+        success: true,
+        status,
+      });
+    } catch (error) {
+      console.error("Get student status error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get student status",
       });
     }
   });
