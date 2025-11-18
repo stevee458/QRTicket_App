@@ -7,8 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Edit2, Save, X, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Search, Edit2, Save, X, Loader2, AlertCircle, RefreshCw, Download, Copy } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Parent {
   id: string;
@@ -26,7 +36,8 @@ interface Student {
   age: number;
   school: string;
   parentId: string;
-  qrCode: string;
+  qrCode?: string;
+  qrCodeCreatedAt?: Date;
 }
 
 interface ParentResult {
@@ -47,6 +58,8 @@ export default function AdminSearch() {
   const [editingStudent, setEditingStudent] = useState<string | null>(null);
   const [parentFormData, setParentFormData] = useState<Partial<Parent>>({});
   const [studentFormData, setStudentFormData] = useState<Partial<Student>>({});
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [studentToRegenerate, setStudentToRegenerate] = useState<string | null>(null);
   const { toast } = useToast();
 
   const {
@@ -165,6 +178,60 @@ export default function AdminSearch() {
 
   const saveStudent = (id: string) => {
     updateStudentMutation.mutate({ id, data: studentFormData });
+  };
+
+  const handleRegenerateClick = (studentId: string) => {
+    setStudentToRegenerate(studentId);
+    setShowRegenerateDialog(true);
+  };
+
+  const confirmRegenerate = () => {
+    if (studentToRegenerate) {
+      regenerateQRMutation.mutate(studentToRegenerate);
+    }
+    setShowRegenerateDialog(false);
+    setStudentToRegenerate(null);
+  };
+
+  const copyQRCode = async (qrCode: string, studentName: string) => {
+    try {
+      const response = await fetch(qrCode);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob,
+        }),
+      ]);
+      toast({
+        title: "Success",
+        description: `QR code for ${studentName} copied to clipboard`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy QR code. Please try downloading instead.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const downloadQRCode = (qrCode: string, studentName: string) => {
+    const link = document.createElement("a");
+    link.href = qrCode;
+    link.download = `${studentName.replace(/\s+/g, "_")}_QR_Code.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({
+      title: "Success",
+      description: `QR code for ${studentName} downloaded`,
+    });
+  };
+
+  const formatQRTimestamp = (date: Date | string | undefined) => {
+    if (!date) return "N/A";
+    const d = typeof date === "string" ? new Date(date) : date;
+    return d.toLocaleString();
   };
 
   return (
@@ -465,7 +532,7 @@ export default function AdminSearch() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => regenerateQRMutation.mutate(student.id)}
+                                    onClick={() => handleRegenerateClick(student.id)}
                                     disabled={regenerateQRMutation.isPending}
                                     data-testid={`button-regenerate-qr-${student.id}`}
                                   >
@@ -488,14 +555,41 @@ export default function AdminSearch() {
                                   <div data-testid={`text-student-email-${student.id}`}>Email: {student.email}</div>
                                 </div>
                                 {student.qrCode && (
-                                  <div className="mt-3">
-                                    <Label className="text-xs text-muted-foreground">QR Code</Label>
+                                  <div className="mt-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs text-muted-foreground">
+                                        QR Code (Active)
+                                      </Label>
+                                      <span className="text-xs text-muted-foreground" data-testid={`text-qr-timestamp-${student.id}`}>
+                                        Created: {formatQRTimestamp(student.qrCodeCreatedAt)}
+                                      </span>
+                                    </div>
                                     <img
                                       src={student.qrCode}
                                       alt={`QR Code for ${student.name}`}
                                       className="mt-1 border rounded"
                                       data-testid={`img-qr-${student.id}`}
                                     />
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => copyQRCode(student.qrCode!, student.name)}
+                                        data-testid={`button-copy-qr-${student.id}`}
+                                      >
+                                        <Copy className="w-4 h-4 mr-2" />
+                                        Copy QR
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => downloadQRCode(student.qrCode!, student.name)}
+                                        data-testid={`button-download-qr-${student.id}`}
+                                      >
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Download QR
+                                      </Button>
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -619,7 +713,7 @@ export default function AdminSearch() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => regenerateQRMutation.mutate(result.student.id)}
+                            onClick={() => handleRegenerateClick(result.student.id)}
                             disabled={regenerateQRMutation.isPending}
                             data-testid={`button-regenerate-qr-${result.student.id}`}
                           >
@@ -649,14 +743,41 @@ export default function AdminSearch() {
                           </div>
                         </div>
                         {result.student.qrCode && (
-                          <div className="mb-4">
-                            <Label className="text-xs text-muted-foreground">QR Code</Label>
+                          <div className="mb-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">
+                                QR Code (Active)
+                              </Label>
+                              <span className="text-xs text-muted-foreground" data-testid={`text-qr-timestamp-${result.student.id}`}>
+                                Created: {formatQRTimestamp(result.student.qrCodeCreatedAt)}
+                              </span>
+                            </div>
                             <img
                               src={result.student.qrCode}
                               alt={`QR Code for ${result.student.name}`}
                               className="mt-1 border rounded"
                               data-testid={`img-qr-${result.student.id}`}
                             />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copyQRCode(result.student.qrCode!, result.student.name)}
+                                data-testid={`button-copy-qr-${result.student.id}`}
+                              >
+                                <Copy className="w-4 h-4 mr-2" />
+                                Copy QR
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => downloadQRCode(result.student.qrCode!, result.student.name)}
+                                data-testid={`button-download-qr-${result.student.id}`}
+                              >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download QR
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </>
@@ -688,6 +809,30 @@ export default function AdminSearch() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+        <AlertDialogContent data-testid="dialog-regenerate-qr">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Regenerate New QR</AlertDialogTitle>
+            <AlertDialogDescription>
+              Note that the current QR will no longer be active. This action will generate a new QR code
+              and deactivate the previous one. Previous QR codes are kept for record purposes (up to 3 old codes).
+              Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-regenerate">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmRegenerate}
+              data-testid="button-confirm-regenerate"
+            >
+              Regenerate QR Code
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

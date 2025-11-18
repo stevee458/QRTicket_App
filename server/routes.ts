@@ -51,16 +51,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             school: student.school,
           });
           
-          const qrCode = await QRCode.toDataURL(qrData, {
+          const qrCodeData = await QRCode.toDataURL(qrData, {
             width: 200,
             margin: 2,
           });
 
-          await storage.updateStudentQRCode(student.id, qrCode);
+          const qrRecord = await storage.createQRCode(student.id, qrCodeData);
 
           return {
             ...student,
-            qrCode,
+            qrCode: qrCodeData,
+            qrCodeCreatedAt: qrRecord.createdAt,
           };
         })
       );
@@ -238,12 +239,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         school: studentData.student.school,
       });
       
-      const qrCode = await QRCode.toDataURL(qrData, {
+      const qrCodeData = await QRCode.toDataURL(qrData, {
         width: 200,
         margin: 2,
       });
 
-      await storage.updateStudentQRCode(studentData.student.id, qrCode);
+      await storage.regenerateQRCode(studentData.student.id, qrCodeData);
 
       const updatedStudent = await storage.getStudentWithParent(req.params.id);
 
