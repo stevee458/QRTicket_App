@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Html5QrcodeScanner } from "html5-qrcode";
 
 interface Driver {
   id: string;
@@ -56,6 +57,78 @@ interface DriverSession {
   driver: Driver;
   vehicle: Vehicle;
   shift: Shift;
+}
+
+interface QRScannerProps {
+  onScan: (qrData: string) => void;
+  onError: (error: string) => void;
+  isActive: boolean;
+}
+
+function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const hasScannedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isActive) {
+      hasScannedRef.current = false;
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(console.error);
+        scannerRef.current = null;
+      }
+      return;
+    }
+
+    const scannerId = "qr-reader";
+    
+    if (!scannerRef.current) {
+      scannerRef.current = new Html5QrcodeScanner(
+        scannerId,
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+          showTorchButtonIfSupported: true,
+        },
+        false
+      );
+
+      scannerRef.current.render(
+        (decodedText) => {
+          if (hasScannedRef.current) return;
+          hasScannedRef.current = true;
+          
+          onScan(decodedText);
+          
+          if (scannerRef.current) {
+            scannerRef.current.clear().catch(console.error);
+            scannerRef.current = null;
+          }
+        },
+        (errorMessage) => {
+          // Ignore common scanning errors
+          if (!errorMessage.includes("NotFoundException")) {
+            console.warn("QR scan error:", errorMessage);
+          }
+        }
+      );
+    }
+
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(console.error);
+        scannerRef.current = null;
+      }
+    };
+  }, [isActive, onScan]);
+
+  if (!isActive) return null;
+
+  return (
+    <div className="w-full">
+      <div id="qr-reader" className="w-full" data-testid="qr-scanner-viewport"></div>
+    </div>
+  );
 }
 
 export default function DriverPage() {
@@ -306,11 +379,12 @@ export default function DriverPage() {
     setQrInput("");
   };
 
-  const handleQRScan = async () => {
-    if (!qrInput || !session) return;
+  const handleQRScan = async (scannedData?: string) => {
+    const dataToProcess = scannedData || qrInput;
+    if (!dataToProcess || !session) return;
 
     try {
-      const parsedQR = JSON.parse(qrInput);
+      const parsedQR = JSON.parse(dataToProcess);
       const studentId = parsedQR.studentId;
       const studentName = parsedQR.name || "Student";
       const message = scanMode === "Board" ? `Hi ${studentName.split(' ')[0]}` : `Goodbye ${studentName.split(' ')[0]}`;
@@ -346,7 +420,7 @@ export default function DriverPage() {
         location: "GPS: Placeholder", // TODO: Get actual GPS
         forced: false,
         scannedAt: new Date().toISOString(),
-        qrData: qrInput,
+        qrData: dataToProcess,
       };
 
       if (isOnline) {
@@ -784,22 +858,35 @@ export default function DriverPage() {
           </Card>
         </div>
 
-        {/* QR Scanner Dialog (Placeholder) */}
+        {/* QR Scanner Dialog */}
         <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
-          <DialogContent data-testid="dialog-qr-scanner">
+          <DialogContent data-testid="dialog-qr-scanner" className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Scan QR Code - {scanMode}</DialogTitle>
               <DialogDescription>
-                Camera scanning will be implemented here. For now, paste QR data manually.
+                Point your camera at the student's QR code
               </DialogDescription>
             </DialogHeader>
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Camera integration pending. Paste JSON QR data for testing.
-              </AlertDescription>
-            </Alert>
-            <div className="space-y-4">
+            
+            {/* Camera Scanner */}
+            <QRScanner
+              onScan={(qrData) => {
+                setQrInput(qrData);
+                handleQRScan(qrData);
+              }}
+              onError={(error) => {
+                toast({
+                  title: "Scanner Error",
+                  description: error,
+                  variant: "destructive",
+                });
+              }}
+              isActive={showQRScanner}
+            />
+            
+            {/* Manual input fallback */}
+            <div className="space-y-4 mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground">Manual Entry (if camera fails)</p>
               <div>
                 <Label htmlFor="qr-input">QR Code Data</Label>
                 <Input
@@ -811,7 +898,7 @@ export default function DriverPage() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleQRScan} className="flex-1" data-testid="button-confirm-scan">
+                <Button onClick={() => handleQRScan(qrInput)} className="flex-1" data-testid="button-confirm-scan">
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Confirm {scanMode}
                 </Button>
