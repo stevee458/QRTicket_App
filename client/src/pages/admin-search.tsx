@@ -450,68 +450,70 @@ export default function AdminSearch() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEditParent(result.parent)}
-                          data-testid={`button-edit-parent-${result.parent.id}`}
-                        >
-                          <Edit2 className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteParentClick(result.parent.id)}
-                          data-testid={`button-delete-parent-${result.parent.id}`}
-                        >
-                          Delete Parent
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditParent(result.parent)}
+                        data-testid={`button-edit-parent-${result.parent.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
                     )}
                   </CardHeader>
                   <CardContent>
                     {editingParent === result.parent.id ? (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                          <Label htmlFor="parent-name">Name</Label>
-                          <Input
-                            id="parent-name"
-                            value={parentFormData.name || ""}
-                            onChange={(e) => setParentFormData({ ...parentFormData, name: e.target.value })}
-                            data-testid="input-parent-name"
-                          />
+                      <>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label htmlFor="parent-name">Name</Label>
+                            <Input
+                              id="parent-name"
+                              value={parentFormData.name || ""}
+                              onChange={(e) => setParentFormData({ ...parentFormData, name: e.target.value })}
+                              data-testid="input-parent-name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="parent-id">ID Number</Label>
+                            <Input
+                              id="parent-id"
+                              value={parentFormData.idNumber || ""}
+                              onChange={(e) => setParentFormData({ ...parentFormData, idNumber: e.target.value })}
+                              data-testid="input-parent-id"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="parent-phone">Phone</Label>
+                            <Input
+                              id="parent-phone"
+                              value={parentFormData.phone || ""}
+                              onChange={(e) => setParentFormData({ ...parentFormData, phone: e.target.value })}
+                              data-testid="input-parent-phone"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="parent-email">Email</Label>
+                            <Input
+                              id="parent-email"
+                              type="email"
+                              value={parentFormData.email || ""}
+                              onChange={(e) => setParentFormData({ ...parentFormData, email: e.target.value })}
+                              data-testid="input-parent-email"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="parent-id">ID Number</Label>
-                          <Input
-                            id="parent-id"
-                            value={parentFormData.idNumber || ""}
-                            onChange={(e) => setParentFormData({ ...parentFormData, idNumber: e.target.value })}
-                            data-testid="input-parent-id"
-                          />
+                        <div className="mt-6 pt-4 border-t">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteParentClick(result.parent.id)}
+                            data-testid={`button-delete-parent-${result.parent.id}`}
+                          >
+                            Delete Parent
+                          </Button>
                         </div>
-                        <div>
-                          <Label htmlFor="parent-phone">Phone</Label>
-                          <Input
-                            id="parent-phone"
-                            value={parentFormData.phone || ""}
-                            onChange={(e) => setParentFormData({ ...parentFormData, phone: e.target.value })}
-                            data-testid="input-parent-phone"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="parent-email">Email</Label>
-                          <Input
-                            id="parent-email"
-                            type="email"
-                            value={parentFormData.email || ""}
-                            onChange={(e) => setParentFormData({ ...parentFormData, email: e.target.value })}
-                            data-testid="input-parent-email"
-                          />
-                        </div>
-                      </div>
+                      </>
                     ) : (
                       <div className="grid gap-2 md:grid-cols-2 text-sm">
                         <div data-testid={`text-parent-id-${result.parent.id}`}>
