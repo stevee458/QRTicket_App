@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Download } from "lucide-react";
-import QRCode from "qrcode";
 
 interface Student {
   name: string;
@@ -26,28 +25,13 @@ export default function SuccessPage({
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const generateQRCodes = async () => {
-      const codes: Record<string, string> = {};
-      for (const student of students) {
-        try {
-          const qrData = JSON.stringify({
-            studentId: student.id,
-            name: student.name,
-            school: student.school,
-          });
-          const qrCodeUrl = await QRCode.toDataURL(qrData, {
-            width: 200,
-            margin: 2,
-          });
-          codes[student.id] = qrCodeUrl;
-        } catch (error) {
-          console.error("Error generating QR code:", error);
-        }
+    const codes: Record<string, string> = {};
+    for (const student of students) {
+      if (student.qrCode) {
+        codes[student.id] = student.qrCode;
       }
-      setQrCodes(codes);
-    };
-
-    generateQRCodes();
+    }
+    setQrCodes(codes);
   }, [students]);
 
   const downloadQRCode = (studentId: string, studentName: string) => {

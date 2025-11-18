@@ -33,11 +33,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: data.parentEmail,
       };
 
+      const studentsData = data.students.map((student) => ({
+        name: student.name,
+        phone: student.phone,
+        email: student.email,
+        age: student.age,
+        school: student.school,
+      }));
+
+      const result = await storage.createRegistration(parentData, studentsData);
+
       const studentsWithQRCodes = await Promise.all(
-        data.students.map(async (student) => {
-          const studentId = `STU-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        result.students.map(async (student) => {
           const qrData = JSON.stringify({
-            studentId,
+            studentId: student.id,
             name: student.name,
             school: student.school,
           });
@@ -47,24 +56,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             margin: 2,
           });
 
+          await storage.updateStudentQRCode(student.id, qrCode);
+
           return {
-            name: student.name,
-            phone: student.phone,
-            email: student.email,
-            age: student.age,
-            school: student.school,
+            ...student,
             qrCode,
           };
         })
       );
 
-      const result = await storage.createRegistration(parentData, studentsWithQRCodes);
-
       res.json({
         success: true,
         data: {
           parent: result.parent,
-          students: result.students,
+          students: studentsWithQRCodes,
         },
       });
     } catch (error) {
