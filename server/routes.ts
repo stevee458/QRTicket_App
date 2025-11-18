@@ -271,10 +271,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Delete parent error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to delete parent",
-      });
+      if (error instanceof Error && error.message === "Parent not found") {
+        res.status(404).json({
+          success: false,
+          error: "Parent not found",
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to delete parent",
+        });
+      }
     }
   });
 
@@ -315,10 +322,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Count siblings error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to count siblings",
-      });
+      if (error instanceof Error && error.message === "Student not found") {
+        res.status(404).json({
+          success: false,
+          error: "Student not found",
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to count siblings",
+        });
+      }
     }
   });
 

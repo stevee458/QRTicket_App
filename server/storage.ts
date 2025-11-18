@@ -282,6 +282,14 @@ export class DbStorage implements IStorage {
   }
 
   async deleteParent(parentId: string): Promise<void> {
+    const parent = await db.query.parents.findFirst({
+      where: eq(parents.id, parentId),
+    });
+
+    if (!parent) {
+      throw new Error("Parent not found");
+    }
+
     await db.delete(parents).where(eq(parents.id, parentId));
   }
 
@@ -291,7 +299,7 @@ export class DbStorage implements IStorage {
     });
 
     if (!student) {
-      return 0;
+      throw new Error("Student not found");
     }
 
     const siblings = await db.query.students.findMany({

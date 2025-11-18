@@ -262,6 +262,15 @@ export default function AdminSearch() {
       const response = await fetch(`/api/students/${student.id}/siblings-count`);
       const data = await response.json();
       
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to check student siblings",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       if (data.success) {
         setSiblingCount(data.count);
         setStudentToDelete(student);
