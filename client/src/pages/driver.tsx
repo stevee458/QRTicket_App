@@ -67,11 +67,11 @@ interface QRScannerProps {
 
 function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const hasScannedRef = useRef(false);
+  const processingRef = useRef(false);
 
   useEffect(() => {
     if (!isActive) {
-      hasScannedRef.current = false;
+      processingRef.current = false;
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
         scannerRef.current = null;
@@ -94,15 +94,19 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
       );
 
       scannerRef.current.render(
-        (decodedText) => {
-          if (hasScannedRef.current) return;
-          hasScannedRef.current = true;
+        async (decodedText) => {
+          if (processingRef.current) return;
+          processingRef.current = true;
           
-          onScan(decodedText);
-          
-          if (scannerRef.current) {
-            scannerRef.current.clear().catch(console.error);
-            scannerRef.current = null;
+          try {
+            await onScan(decodedText);
+          } catch (error) {
+            console.error("Scan processing error:", error);
+          } finally {
+            // Allow next scan after a short delay
+            setTimeout(() => {
+              processingRef.current = false;
+            }, 500);
           }
         },
         (errorMessage) => {
@@ -870,9 +874,9 @@ export default function DriverPage() {
             
             {/* Camera Scanner */}
             <QRScanner
-              onScan={(qrData) => {
+              onScan={async (qrData) => {
                 setQrInput(qrData);
-                handleQRScan(qrData);
+                await handleQRScan(qrData);
               }}
               onError={(error) => {
                 toast({
