@@ -578,15 +578,12 @@ export class DbStorage implements IStorage {
   }
 
   async getOnboardStudents(driverId: string, vehicleId: string, shiftId: string): Promise<StudentWithQR[]> {
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-
-    const boardScans = await db.query.qrScans.findMany({
+    // Get ALL scans for this driver/vehicle/shift
+    const allScans = await db.query.qrScans.findMany({
       where: and(
         eq(qrScans.driverId, driverId),
         eq(qrScans.vehicleId, vehicleId),
-        eq(qrScans.shiftId, shiftId),
-        eq(qrScans.scanType, "On"),
-        gte(qrScans.scannedAt, fifteenMinutesAgo)
+        eq(qrScans.shiftId, shiftId)
       ),
       with: {
         student: true,
@@ -594,29 +591,21 @@ export class DbStorage implements IStorage {
       orderBy: [desc(qrScans.scannedAt)],
     });
 
-    const alightScans = await db.query.qrScans.findMany({
-      where: and(
-        eq(qrScans.driverId, driverId),
-        eq(qrScans.vehicleId, vehicleId),
-        eq(qrScans.shiftId, shiftId),
-        eq(qrScans.scanType, "Off"),
-        gte(qrScans.scannedAt, fifteenMinutesAgo)
-      ),
-      with: {
-        student: true,
-      },
-      orderBy: [desc(qrScans.scannedAt)],
-    });
+    // Group scans by student and find most recent for each
+    const studentMostRecentScan = new Map();
+    
+    for (const scan of allScans) {
+      if (!studentMostRecentScan.has(scan.studentId)) {
+        studentMostRecentScan.set(scan.studentId, scan);
+      }
+    }
 
-    const alightedStudentIds = new Set(alightScans.map(scan => scan.studentId));
+    // Filter to only students whose most recent scan is "On"
+    const onboardStudents = Array.from(studentMostRecentScan.values())
+      .filter(scan => scan.scanType === "On")
+      .map(scan => scan.student);
 
-    const onboardStudents = boardScans
-      .filter(scan => !alightedStudentIds.has(scan.studentId))
-      .map(scan => scan.student)
-      .filter((student, index, self) => 
-        index === self.findIndex(s => s.id === student.id)
-      );
-
+    // Enrich with QR codes and status
     const studentsWithQR = await Promise.all(
       onboardStudents.map(async (student) => {
         const activeQR = await this.getActiveQRCode(student.id);
