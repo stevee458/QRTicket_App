@@ -9,6 +9,7 @@ import Admin from "@/pages/admin";
 import AdminSearch from "@/pages/admin-search";
 import Parent from "@/pages/parent";
 import Registration from "@/pages/registration";
+import RegisterTransport from "@/pages/register-transport";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/driver" component={Driver} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/register" component={Registration} />
+      <Route path="/admin/register-transport" component={RegisterTransport} />
       <Route path="/admin/search" component={AdminSearch} />
       <Route path="/parent" component={Parent} />
       <Route component={NotFound} />
