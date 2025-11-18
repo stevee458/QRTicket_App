@@ -145,6 +145,47 @@ The application uses a relational schema with two main tables:
 
 **Utility Libraries:**
 - qrcode for QR code generation
+- html5-qrcode for camera-based QR code scanning
 - date-fns for date manipulation
 - nanoid for unique ID generation
 - clsx and tailwind-merge for class name management
+
+## Key Features
+
+### Parent Registration & QR Code Generation
+- Multi-student registration per parent
+- Unique QR codes generated for each student
+- QR codes contain JSON data: studentId, name, school, version
+- Downloadable QR codes for offline use
+
+### Transport Management System
+- **Vehicles**: Bus number, registration, depot management
+- **Shifts**: Shift scheduling with titles and descriptions
+- **Drivers**: Driver registration with company numbers
+- Admin portal for full CRUD operations on transport data
+
+### Driver Portal (Offline-Capable)
+- **Authentication**: Driver login with name + company number
+- **Session Management**: Vehicle and shift selection
+- **Camera QR Scanning**: Real-time camera-based QR code scanning using html5-qrcode
+  - Board/Alight modes with separate buttons
+  - Validation prevents duplicate boarding or invalid alighting
+  - Manual fallback input for camera failures
+  - Automatic retry on validation errors (500ms cooldown)
+- **Audio Feedback**: Text-to-speech announcements ("Hi [Name]" / "Goodbye [Name]")
+- **Offline Support**: Full offline operation with localStorage persistence
+  - Unique scan IDs (crypto.randomUUID()) prevent duplicates
+  - Pending scans queue with manual/auto-sync capabilities
+  - Sync triggers: Manual button, 3-minute periodic, reconnection (2s delay)
+  - 30-second retry after failed submissions
+- **Real-time Status**: Connection indicator, pending scans counter, sync timestamps
+- **Onboard Tracking**: View currently boarded students
+
+### Scan Data Capture
+Each QR scan records:
+- Date and time (ISO string)
+- GPS location (placeholder implementation)
+- Driver, vehicle, and shift details
+- Student information from QR code
+- Action type (Board/Alight)
+- Forced override flag
