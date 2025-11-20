@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 
 interface Driver {
   id: string;
@@ -66,7 +66,7 @@ interface QRScannerProps {
 }
 
 function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
   const hasScannedRef = useRef(false);
 
@@ -78,67 +78,79 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
     hasScannedRef.current = false;
     
     if (!isActive) {
-      // Clear scanner when inactive
+      // Stop scanner when inactive
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(console.error);
-        scannerRef.current = null;
+        scannerRef.current.stop().then(() => {
+          scannerRef.current?.clear();
+          scannerRef.current = null;
+        }).catch(console.error);
       }
       return;
     }
 
-    // Active - destroy any existing scanner and create fresh one
-    if (scannerRef.current) {
-      scannerRef.current.clear().catch(console.error);
-      scannerRef.current = null;
-    }
-    
-    // Create new scanner instance
-    scannerRef.current = new Html5QrcodeScanner(
-      scannerId,
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0,
-        showTorchButtonIfSupported: true,
-        videoConstraints: {
-          facingMode: "environment" // Use back camera for phones
-        }
-      },
-      false
-    );
-
-    scannerRef.current.render(
-      async (decodedText) => {
-        // Prevent multiple scans
-        if (processingRef.current || hasScannedRef.current) return;
-        
-        processingRef.current = true;
-        hasScannedRef.current = true;
-        
+    // Active - stop any existing scanner and create fresh one
+    const startScanner = async () => {
+      if (scannerRef.current) {
         try {
-          await onScan(decodedText);
-        } catch (error) {
-          console.error("Scan processing error:", error);
-        } finally {
-          processingRef.current = false;
+          await scannerRef.current.stop();
+          scannerRef.current.clear();
+        } catch (err) {
+          console.error("Error stopping scanner:", err);
         }
-      },
-      (errorMessage) => {
-        // Ignore common scanning errors
-        if (!errorMessage.includes("NotFoundException")) {
-          console.warn("QR scan error:", errorMessage);
-        }
+        scannerRef.current = null;
       }
-    );
+      
+      // Create new scanner instance
+      scannerRef.current = new Html5Qrcode(scannerId);
+
+      try {
+        await scannerRef.current.start(
+          { facingMode: "environment" }, // Use back camera for phones
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+          },
+          async (decodedText) => {
+            // Prevent multiple scans
+            if (processingRef.current || hasScannedRef.current) return;
+            
+            processingRef.current = true;
+            hasScannedRef.current = true;
+            
+            try {
+              await onScan(decodedText);
+            } catch (error) {
+              console.error("Scan processing error:", error);
+            } finally {
+              processingRef.current = false;
+            }
+          },
+          (errorMessage) => {
+            // Ignore common scanning errors
+            if (!errorMessage.includes("NotFoundException")) {
+              console.warn("QR scan error:", errorMessage);
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Error starting scanner:", err);
+        onError("Failed to start camera. Please check permissions.");
+      }
+    };
+
+    startScanner();
 
     // Cleanup when isActive changes or component unmounts
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(console.error);
-        scannerRef.current = null;
+        scannerRef.current.stop().then(() => {
+          scannerRef.current?.clear();
+          scannerRef.current = null;
+        }).catch(console.error);
       }
     };
-  }, [isActive, onScan]);
+  }, [isActive, onScan, onError]);
 
   // Always render container so DOM element exists
   return (
