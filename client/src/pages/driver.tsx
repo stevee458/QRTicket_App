@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Html5Qrcode } from "html5-qrcode";
 
@@ -210,6 +211,7 @@ export default function DriverPage() {
   const [lastScanResult, setLastScanResult] = useState<string | null>(null);
   const [qrInput, setQrInput] = useState("");
   const [showOnboardList, setShowOnboardList] = useState(false);
+  const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   
   // Offline sync state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -519,6 +521,8 @@ export default function DriverPage() {
     setIsCameraActive(false);
     setLastScanResult(null);
     setScanMode(null);
+    setIsManualEntryOpen(false);
+    setQrInput("");
   };
 
   const handleQRScan = useCallback(async (scannedData?: string) => {
@@ -1135,7 +1139,7 @@ export default function DriverPage() {
               <>
                 {/* Success feedback */}
                 {lastScanResult && (
-                  <Alert className="mb-4">
+                  <Alert className="mb-6">
                     <CheckCircle2 className="h-4 w-4" />
                     <AlertDescription data-testid="text-last-scan-result">
                       {lastScanResult}
@@ -1143,20 +1147,18 @@ export default function DriverPage() {
                   </Alert>
                 )}
                 
-                {/* Primary action - Next Scan button (prominent) */}
-                <div className="flex gap-2 mb-6">
+                {/* Primary action - Large circular Next Scan button */}
+                <div className="flex flex-col items-center gap-3 mb-6">
                   <Button 
                     onClick={handleNextScan} 
-                    className="flex-1" 
-                    size="lg"
+                    className="h-32 w-32 rounded-full flex flex-col items-center justify-center gap-2 text-base font-semibold" 
                     data-testid="button-next-scan"
                   >
-                    <Camera className="w-5 h-5 mr-2" />
-                    Next Scan
+                    <Camera className="w-8 h-8" />
+                    <span>Next Scan</span>
                   </Button>
                   <Button 
                     variant="outline" 
-                    size="lg"
                     onClick={handleBackToMain}
                     data-testid="button-back-to-main"
                   >
@@ -1164,31 +1166,46 @@ export default function DriverPage() {
                   </Button>
                 </div>
                 
-                {/* Secondary option - Manual entry (de-emphasized) */}
-                <div className="space-y-3 pt-4 border-t">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                    Or use manual entry
-                  </p>
-                  <div>
-                    <Input
-                      id="student-name-input-initial"
-                      placeholder="First and Surname"
-                      value={qrInput}
-                      onChange={(e) => setQrInput(e.target.value)}
-                      data-testid="input-student-name-initial"
-                    />
+                {/* Collapsible Manual Entry - Secondary fallback option */}
+                <Collapsible open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
+                  <div className="pt-4 border-t">
+                    <CollapsibleTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full flex items-center justify-between p-2 hover-elevate"
+                        data-testid="button-toggle-manual-entry"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isManualEntryOpen ? 'rotate-180' : ''}`} />
+                          <span className="text-sm font-medium">Manual Entry</span>
+                        </div>
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Use when QR code is unreadable
+                      </p>
+                      <div className="space-y-3">
+                        <Input
+                          id="student-name-input-initial"
+                          placeholder="First and Surname"
+                          value={qrInput}
+                          onChange={(e) => setQrInput(e.target.value)}
+                          data-testid="input-student-name-initial"
+                        />
+                        <Button 
+                          onClick={() => handleQRScan(qrInput)} 
+                          className="w-full" 
+                          variant="outline"
+                          data-testid="button-manual-confirm"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Confirm {scanMode}
+                        </Button>
+                      </div>
+                    </CollapsibleContent>
                   </div>
-                  <Button 
-                    onClick={() => handleQRScan(qrInput)} 
-                    className="w-full" 
-                    variant="outline"
-                    size="sm"
-                    data-testid="button-manual-confirm"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Confirm {scanMode}
-                  </Button>
-                </div>
+                </Collapsible>
               </>
             )}
           </DialogContent>
