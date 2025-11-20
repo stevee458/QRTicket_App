@@ -69,6 +69,47 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
   const hasScannedRef = useRef(false);
+  const stopPromiseRef = useRef<Promise<void> | null>(null);
+
+  // Safe cleanup helper - handles all error cases
+  const safeStopScanner = async () => {
+    // If already stopping, wait for it to complete
+    if (stopPromiseRef.current) {
+      await stopPromiseRef.current;
+      return;
+    }
+
+    // Capture the scanner instance we're about to stop
+    const scannerToStop = scannerRef.current;
+    if (!scannerToStop) {
+      return;
+    }
+
+    // Create and store the stop promise
+    stopPromiseRef.current = (async () => {
+      try {
+        await scannerToStop.stop();
+      } catch (err) {
+        // Scanner might already be stopped or in invalid state - safe to ignore
+        console.warn("Scanner stop warning (safe to ignore):", err);
+      }
+
+      try {
+        scannerToStop.clear();
+      } catch (err) {
+        // Clear might fail if DOM changed - safe to ignore
+        console.warn("Scanner clear warning (safe to ignore):", err);
+      }
+
+      // Only null the ref if it still points to the instance we just stopped
+      if (scannerRef.current === scannerToStop) {
+        scannerRef.current = null;
+      }
+    })();
+
+    await stopPromiseRef.current;
+    stopPromiseRef.current = null;
+  };
 
   useEffect(() => {
     const scannerId = "qr-reader";
@@ -79,29 +120,22 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
     
     if (!isActive) {
       // Stop scanner when inactive
-      if (scannerRef.current) {
-        scannerRef.current.stop().then(() => {
-          scannerRef.current?.clear();
-          scannerRef.current = null;
-        }).catch(console.error);
-      }
+      safeStopScanner();
       return;
     }
 
     // Active - stop any existing scanner and create fresh one
     const startScanner = async () => {
-      if (scannerRef.current) {
-        try {
-          await scannerRef.current.stop();
-          scannerRef.current.clear();
-        } catch (err) {
-          console.error("Error stopping scanner:", err);
-        }
-        scannerRef.current = null;
-      }
+      await safeStopScanner();
       
       // Create new scanner instance
-      scannerRef.current = new Html5Qrcode(scannerId);
+      try {
+        scannerRef.current = new Html5Qrcode(scannerId);
+      } catch (err) {
+        console.error("Error creating scanner instance:", err);
+        onError("Failed to initialize camera.");
+        return;
+      }
 
       try {
         await scannerRef.current.start(
@@ -136,6 +170,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
       } catch (err) {
         console.error("Error starting scanner:", err);
         onError("Failed to start camera. Please check permissions.");
+        scannerRef.current = null;
       }
     };
 
@@ -143,12 +178,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
 
     // Cleanup when isActive changes or component unmounts
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().then(() => {
-          scannerRef.current?.clear();
-          scannerRef.current = null;
-        }).catch(console.error);
-      }
+      safeStopScanner();
     };
   }, [isActive, onScan, onError]);
 
