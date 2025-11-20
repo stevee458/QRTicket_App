@@ -1133,7 +1133,7 @@ export default function DriverPage() {
               </>
             ) : (
               <>
-                {/* Success feedback and next scan controls */}
+                {/* Success feedback */}
                 {lastScanResult && (
                   <Alert className="mb-4">
                     <CheckCircle2 className="h-4 w-4" />
@@ -1143,9 +1143,32 @@ export default function DriverPage() {
                   </Alert>
                 )}
                 
-                {/* Manual entry option when camera is not active */}
-                <div className="space-y-4 mb-4">
-                  <p className="text-sm text-muted-foreground">Manual Entry</p>
+                {/* Primary action - Next Scan button (prominent) */}
+                <div className="flex gap-2 mb-6">
+                  <Button 
+                    onClick={handleNextScan} 
+                    className="flex-1" 
+                    size="lg"
+                    data-testid="button-next-scan"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Next Scan
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    onClick={handleBackToMain}
+                    data-testid="button-back-to-main"
+                  >
+                    Back
+                  </Button>
+                </div>
+                
+                {/* Secondary option - Manual entry (de-emphasized) */}
+                <div className="space-y-3 pt-4 border-t">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Or use manual entry
+                  </p>
                   <div>
                     <Input
                       id="student-name-input-initial"
@@ -1159,28 +1182,11 @@ export default function DriverPage() {
                     onClick={() => handleQRScan(qrInput)} 
                     className="w-full" 
                     variant="outline"
+                    size="sm"
                     data-testid="button-manual-confirm"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                     Confirm {scanMode}
-                  </Button>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleNextScan} 
-                    className="flex-1" 
-                    data-testid="button-next-scan"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Next Scan
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleBackToMain}
-                    data-testid="button-back-to-main"
-                  >
-                    Back
                   </Button>
                 </div>
               </>
