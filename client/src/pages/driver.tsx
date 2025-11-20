@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -71,9 +71,14 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   const hasScannedRef = useRef(false);
 
   useEffect(() => {
+    const scannerId = "qr-reader";
+    
+    // Always reset processing flag when isActive changes
+    processingRef.current = false;
+    hasScannedRef.current = false;
+    
     if (!isActive) {
-      processingRef.current = false;
-      hasScannedRef.current = false;
+      // Clear scanner when inactive
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
         scannerRef.current = null;
@@ -81,59 +86,52 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
       return;
     }
 
-    const scannerId = "qr-reader";
-    hasScannedRef.current = false;
-    
-    if (!scannerRef.current) {
-      scannerRef.current = new Html5QrcodeScanner(
-        scannerId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-          showTorchButtonIfSupported: true,
-          videoConstraints: {
-            facingMode: "environment" // Use back camera for phones
-          }
-        },
-        false
-      );
-
-      scannerRef.current.render(
-        async (decodedText) => {
-          // Prevent multiple scans - stop immediately on first detection
-          if (processingRef.current || hasScannedRef.current) return;
-          
-          processingRef.current = true;
-          hasScannedRef.current = true;
-          
-          // Stop scanner immediately to prevent further detections
-          if (scannerRef.current) {
-            try {
-              await scannerRef.current.clear();
-              scannerRef.current = null;
-            } catch (err) {
-              console.error("Error clearing scanner:", err);
-            }
-          }
-          
-          try {
-            await onScan(decodedText);
-          } catch (error) {
-            console.error("Scan processing error:", error);
-          } finally {
-            processingRef.current = false;
-          }
-        },
-        (errorMessage) => {
-          // Ignore common scanning errors
-          if (!errorMessage.includes("NotFoundException")) {
-            console.warn("QR scan error:", errorMessage);
-          }
-        }
-      );
+    // Active - destroy any existing scanner and create fresh one
+    if (scannerRef.current) {
+      scannerRef.current.clear().catch(console.error);
+      scannerRef.current = null;
     }
+    
+    // Create new scanner instance
+    scannerRef.current = new Html5QrcodeScanner(
+      scannerId,
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        showTorchButtonIfSupported: true,
+        videoConstraints: {
+          facingMode: "environment" // Use back camera for phones
+        }
+      },
+      false
+    );
 
+    scannerRef.current.render(
+      async (decodedText) => {
+        // Prevent multiple scans
+        if (processingRef.current || hasScannedRef.current) return;
+        
+        processingRef.current = true;
+        hasScannedRef.current = true;
+        
+        try {
+          await onScan(decodedText);
+        } catch (error) {
+          console.error("Scan processing error:", error);
+        } finally {
+          processingRef.current = false;
+        }
+      },
+      (errorMessage) => {
+        // Ignore common scanning errors
+        if (!errorMessage.includes("NotFoundException")) {
+          console.warn("QR scan error:", errorMessage);
+        }
+      }
+    );
+
+    // Cleanup when isActive changes or component unmounts
     return () => {
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
@@ -142,8 +140,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
     };
   }, [isActive, onScan]);
 
-  if (!isActive) return null;
-
+  // Always render container so DOM element exists
   return (
     <div className="w-full">
       <div id="qr-reader" className="w-full" data-testid="qr-scanner-viewport"></div>
@@ -166,7 +163,9 @@ export default function DriverPage() {
   
   // Scanning state
   const [scanMode, setScanMode] = useState<"Board" | "Alight" | null>(null);
-  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showScanDialog, setShowScanDialog] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [lastScanResult, setLastScanResult] = useState<string | null>(null);
   const [qrInput, setQrInput] = useState("");
   const [showOnboardList, setShowOnboardList] = useState(false);
   
@@ -183,9 +182,11 @@ export default function DriverPage() {
   const [currentLocation, setCurrentLocation] = useState<string>("GPS: Placeholder");
   const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
   const watchIdRef = useRef<number | null>(null);
+  const currentLocationRef = useRef<string>("GPS: Placeholder");
   
   // Recent scans tracking - prevent duplicate scans within 3 seconds
   const recentScansRef = useRef<Map<string, number>>(new Map());
+  const syncPendingScansRef = useRef<(() => Promise<void>) | null>(null);
 
   // Load saved session from localStorage
   useEffect(() => {
@@ -237,12 +238,15 @@ export default function DriverPage() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        setCurrentLocation(`GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+        const locationString = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setCurrentLocation(locationString);
+        currentLocationRef.current = locationString;
         setGpsPermissionGranted(true);
       },
       (error) => {
         console.error("GPS error:", error);
         setCurrentLocation("GPS: Unavailable");
+        currentLocationRef.current = "GPS: Unavailable";
         setGpsPermissionGranted(false);
       },
       {
@@ -294,8 +298,8 @@ export default function DriverPage() {
         if (savedScans) {
           try {
             const scans = JSON.parse(savedScans);
-            if (scans.length > 0) {
-              syncPendingScans();
+            if (scans.length > 0 && syncPendingScansRef.current) {
+              syncPendingScansRef.current();
             }
           } catch (error) {
             console.error("Error checking pending scans:", error);
@@ -316,12 +320,14 @@ export default function DriverPage() {
     if (isOnline && pendingScans.length > 0 && !isSyncing) {
       // Small delay to ensure connection is stable
       const immediateSync = setTimeout(() => {
-        syncPendingScans();
+        if (syncPendingScansRef.current) {
+          syncPendingScansRef.current();
+        }
       }, 2000);
       
       return () => clearTimeout(immediateSync);
     }
-  }, [isOnline]);
+  }, [isOnline, pendingScans.length, isSyncing]);
 
   const [loggedInDriver, setLoggedInDriver] = useState<Driver | null>(null);
 
@@ -454,11 +460,26 @@ export default function DriverPage() {
 
   const handleScanButtonClick = (mode: "Board" | "Alight") => {
     setScanMode(mode);
-    setShowQRScanner(true);
+    setShowScanDialog(true);
+    setIsCameraActive(true);
+    setLastScanResult(null);
     setQrInput("");
   };
 
-  const handleQRScan = async (scannedData?: string) => {
+  const handleNextScan = () => {
+    setIsCameraActive(true);
+    setLastScanResult(null);
+    setQrInput("");
+  };
+
+  const handleBackToMain = () => {
+    setShowScanDialog(false);
+    setIsCameraActive(false);
+    setLastScanResult(null);
+    setScanMode(null);
+  };
+
+  const handleQRScan = useCallback(async (scannedData?: string) => {
     const dataToProcess = scannedData || qrInput;
     if (!dataToProcess || !session) return;
 
@@ -473,13 +494,14 @@ export default function DriverPage() {
       const lastScanTime = recentScansRef.current.get(studentId);
       if (lastScanTime && (now - lastScanTime) < 3000) {
         // Silently ignore duplicate scan within 3 seconds
-        setShowQRScanner(false);
-        setScanMode(null);
+        setIsCameraActive(false);
+        setLastScanResult("Duplicate scan ignored");
         return;
       }
 
-      // Check current status
-      const onboardList = onboardData?.data || [];
+      // Check current status from onboard query using queryClient
+      const onboardQueryKey = ["/api/driver/onboard", session?.driver.id, session?.vehicle.id, session?.shift.id];
+      const onboardList = queryClient.getQueryData<{ success: boolean; data: StudentWithStatus[] }>(onboardQueryKey)?.data || [];
       const isCurrentlyOnboard = onboardList.some(s => s.id === studentId);
 
       // Validate scan action
@@ -489,8 +511,8 @@ export default function DriverPage() {
           description: `${studentName} is already on board`,
           variant: "destructive",
         });
-        setShowQRScanner(false);
-        setScanMode(null);
+        setIsCameraActive(false);
+        setLastScanResult(`⚠️ ${studentName} already on board`);
         return;
       }
 
@@ -500,20 +522,20 @@ export default function DriverPage() {
           description: `${studentName} is not currently on board`,
           variant: "destructive",
         });
-        setShowQRScanner(false);
-        setScanMode(null);
+        setIsCameraActive(false);
+        setLastScanResult(`⚠️ ${studentName} not on board`);
         return;
       }
 
       // Mark this student as recently scanned
       recentScansRef.current.set(studentId, now);
 
-      // Create scan record with unique ID
+      // Create scan record with unique ID using current location from ref
       const scan: PendingScan = {
         id: crypto.randomUUID(),
         studentId,
         scanType: scanMode === "Board" ? "On" : "Off",
-        location: currentLocation,
+        location: currentLocationRef.current,
         forced: false,
         scannedAt: new Date().toISOString(),
         qrData: dataToProcess,
@@ -542,9 +564,10 @@ export default function DriverPage() {
             description: message,
           });
 
+          // Stop camera but keep dialog open for next scan
+          setIsCameraActive(false);
+          setLastScanResult(message);
           refetchOnboard();
-          setShowQRScanner(false);
-          setScanMode(null);
         } catch (error) {
           // If online submit fails, queue for later
           setPendingScans(prev => {
@@ -568,8 +591,8 @@ export default function DriverPage() {
             if (savedScans) {
               try {
                 const scans = JSON.parse(savedScans);
-                if (scans.length > 0) {
-                  syncPendingScans();
+                if (scans.length > 0 && syncPendingScansRef.current) {
+                  syncPendingScansRef.current();
                 }
               } catch (err) {
                 console.error("Error checking pending scans for sync:", err);
@@ -577,8 +600,9 @@ export default function DriverPage() {
             }
           }, 30000);
           
-          setShowQRScanner(false);
-          setScanMode(null);
+          // Stop camera but keep dialog open for next scan
+          setIsCameraActive(false);
+          setLastScanResult(message + " (Queued)");
         }
       } else {
         // Offline mode - queue scan
@@ -603,8 +627,8 @@ export default function DriverPage() {
           if (navigator.onLine && savedScans) {
             try {
               const scans = JSON.parse(savedScans);
-              if (scans.length > 0) {
-                syncPendingScans();
+              if (scans.length > 0 && syncPendingScansRef.current) {
+                syncPendingScansRef.current();
               }
             } catch (err) {
               console.error("Error checking pending scans for sync:", err);
@@ -612,8 +636,9 @@ export default function DriverPage() {
           }
         }, 30000);
         
-        setShowQRScanner(false);
-        setScanMode(null);
+        // Stop camera but keep dialog open for next scan
+        setIsCameraActive(false);
+        setLastScanResult(message + " (Offline)");
       }
     } catch (error) {
       console.error("QR scan error:", error);
@@ -622,10 +647,12 @@ export default function DriverPage() {
         description: "Invalid QR code format",
         variant: "destructive",
       });
+      setIsCameraActive(false);
+      setLastScanResult("❌ Invalid QR code – please rescan");
     }
-  };
+  }, [qrInput, session, scanMode, toast, isOnline, refetchOnboard]);
 
-  const syncPendingScans = async () => {
+  const syncPendingScans = useCallback(async () => {
     // Prevent concurrent execution
     if (syncInFlightRef.current) {
       return;
@@ -749,7 +776,12 @@ export default function DriverPage() {
       syncInFlightRef.current = false;
       setIsSyncing(false);
     }
-  };
+  }, [setPendingScans, setLastSyncTime, toast, refetchOnboard]);
+
+  // Keep ref updated
+  useEffect(() => {
+    syncPendingScansRef.current = syncPendingScans;
+  }, [syncPendingScans]);
 
   // Login screen
   if (!isLoggedIn) {
@@ -955,54 +987,95 @@ export default function DriverPage() {
         </div>
 
         {/* QR Scanner Dialog */}
-        <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
+        <Dialog open={showScanDialog} onOpenChange={(open) => !open && handleBackToMain()}>
           <DialogContent data-testid="dialog-qr-scanner" className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Scan QR Code - {scanMode}</DialogTitle>
+              <DialogTitle>
+                {scanMode === "Board" ? "Scanning to Board" : "Scanning to Alight"}
+              </DialogTitle>
               <DialogDescription>
-                Point your camera at the student's QR code
+                {isCameraActive 
+                  ? "Point your camera at the student's QR code"
+                  : lastScanResult 
+                    ? "Scan complete - Ready for next student"
+                    : "Ready to scan"
+                }
               </DialogDescription>
             </DialogHeader>
             
-            {/* Camera Scanner */}
-            <QRScanner
-              onScan={async (qrData) => {
-                setQrInput(qrData);
-                await handleQRScan(qrData);
-              }}
-              onError={(error) => {
-                toast({
-                  title: "Scanner Error",
-                  description: error,
-                  variant: "destructive",
-                });
-              }}
-              isActive={showQRScanner}
-            />
-            
-            {/* Manual input fallback */}
-            <div className="space-y-4 mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">Manual Entry (if camera fails)</p>
-              <div>
-                <Label htmlFor="qr-input">QR Code Data</Label>
-                <Input
-                  id="qr-input"
-                  placeholder='{"studentId":"...","name":"...","version":1}'
-                  value={qrInput}
-                  onChange={(e) => setQrInput(e.target.value)}
-                  data-testid="input-qr-data"
+            {isCameraActive ? (
+              <>
+                {/* Camera Scanner */}
+                <QRScanner
+                  onScan={async (qrData) => {
+                    setQrInput(qrData);
+                    await handleQRScan(qrData);
+                  }}
+                  onError={(error) => {
+                    toast({
+                      title: "Scanner Error",
+                      description: error,
+                      variant: "destructive",
+                    });
+                  }}
+                  isActive={isCameraActive}
                 />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={() => handleQRScan(qrInput)} className="flex-1" data-testid="button-confirm-scan">
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Confirm {scanMode}
-                </Button>
-                <Button variant="outline" onClick={() => setShowQRScanner(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
+                
+                {/* Manual input fallback */}
+                <div className="space-y-4 mt-4 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">Manual Entry (if camera fails)</p>
+                  <div>
+                    <Label htmlFor="qr-input">QR Code Data</Label>
+                    <Input
+                      id="qr-input"
+                      placeholder='{"studentId":"...","name":"...","version":1}'
+                      value={qrInput}
+                      onChange={(e) => setQrInput(e.target.value)}
+                      data-testid="input-qr-data"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleQRScan(qrInput)} className="flex-1" data-testid="button-confirm-scan">
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Confirm {scanMode}
+                    </Button>
+                    <Button variant="outline" onClick={handleBackToMain}>
+                      Back
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Success feedback and next scan controls */}
+                {lastScanResult && (
+                  <Alert className="mb-4">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertDescription data-testid="text-last-scan-result">
+                      {lastScanResult}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleNextScan} 
+                    className="flex-1" 
+                    data-testid="button-next-scan"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    NEXT
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleBackToMain}
+                    data-testid="button-back-to-main"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
 
