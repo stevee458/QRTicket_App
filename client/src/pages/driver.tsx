@@ -652,6 +652,21 @@ export default function DriverPage() {
     }
   }, [qrInput, session, scanMode, toast, isOnline, refetchOnboard]);
 
+  // Memoized onScan callback to prevent QRScanner from recreating on every render
+  const handleScannerScan = useCallback(async (qrData: string) => {
+    setQrInput(qrData);
+    await handleQRScan(qrData);
+  }, [handleQRScan]);
+
+  // Memoized onError callback for QRScanner
+  const handleScannerError = useCallback((error: string) => {
+    toast({
+      title: "Scanner Error",
+      description: error,
+      variant: "destructive",
+    });
+  }, [toast]);
+
   const syncPendingScans = useCallback(async () => {
     // Prevent concurrent execution
     if (syncInFlightRef.current) {
@@ -1007,17 +1022,8 @@ export default function DriverPage() {
               <>
                 {/* Camera Scanner */}
                 <QRScanner
-                  onScan={async (qrData) => {
-                    setQrInput(qrData);
-                    await handleQRScan(qrData);
-                  }}
-                  onError={(error) => {
-                    toast({
-                      title: "Scanner Error",
-                      description: error,
-                      variant: "destructive",
-                    });
-                  }}
+                  onScan={handleScannerScan}
+                  onError={handleScannerError}
                   isActive={isCameraActive}
                 />
                 
