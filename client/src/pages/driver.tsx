@@ -10,7 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Html5Qrcode } from "html5-qrcode";
 
@@ -213,6 +215,11 @@ export default function DriverPage() {
   const [showOnboardList, setShowOnboardList] = useState(false);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   
+  // Autocomplete state
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<Array<{ student: StudentWithStatus; parent: any }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
   // Offline sync state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingScans, setPendingScans] = useState<PendingScan[]>([]);
@@ -231,6 +238,7 @@ export default function DriverPage() {
   // Recent scans tracking - prevent duplicate scans within 3 seconds
   const recentScansRef = useRef<Map<string, number>>(new Map());
   const syncPendingScansRef = useRef<(() => Promise<void>) | null>(null);
+  const isProcessingManualSelectionRef = useRef<boolean>(false);
 
   // Load saved session from localStorage
   useEffect(() => {
@@ -372,6 +380,38 @@ export default function DriverPage() {
       return () => clearTimeout(immediateSync);
     }
   }, [isOnline, pendingScans.length, isSyncing]);
+
+  // Debounced search for autocomplete
+  useEffect(() => {
+    // Skip search if we're processing a manual selection
+    if (isProcessingManualSelectionRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (qrInput.trim().length >= 2 && isManualEntryOpen) {
+        setIsSearching(true);
+        try {
+          const response = await fetch(`/api/search/students?q=${encodeURIComponent(qrInput)}`);
+          const result = await response.json();
+          if (result.success) {
+            setSearchResults(result.data || []);
+            setAutocompleteOpen(result.data && result.data.length > 0);
+          }
+        } catch (error) {
+          console.error("Autocomplete search error:", error);
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults([]);
+        setAutocompleteOpen(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [qrInput, isManualEntryOpen]);
 
   const [loggedInDriver, setLoggedInDriver] = useState<Driver | null>(null);
 
@@ -525,49 +565,61 @@ export default function DriverPage() {
     setQrInput("");
   };
 
-  const handleQRScan = useCallback(async (scannedData?: string) => {
-    const dataToProcess = scannedData || qrInput;
-    if (!dataToProcess || !session) return;
+  const handleQRScan = useCallback(async (scannedData?: string | { studentId: string; studentName: string }) => {
+    if (!session) return;
 
     let studentId: string;
     let studentName: string;
+    let dataToProcess: string; // Declare outside to use in scan record
 
-    try {
-      // Try to parse as JSON (QR code data)
-      const parsedQR = JSON.parse(dataToProcess);
-      studentId = parsedQR.studentId;
-      studentName = parsedQR.name || "Student";
-    } catch (jsonError) {
-      // If not JSON, treat as student name search
+    // Check if scannedData is a student object (from autocomplete)
+    if (typeof scannedData === 'object' && scannedData !== null) {
+      studentId = scannedData.studentId;
+      studentName = scannedData.studentName;
+      // Use student ID as qrData for autocomplete selections
+      dataToProcess = JSON.stringify({ studentId, name: studentName });
+    } else {
+      // Process as string (QR code or manual entry)
+      dataToProcess = scannedData || qrInput;
+      if (!dataToProcess) return;
+
       try {
-        const response = await fetch(`/api/search/students?q=${encodeURIComponent(dataToProcess)}`);
-        const searchResult = await response.json();
-        
-        if (!searchResult.success || !searchResult.data || searchResult.data.length === 0) {
+        // Try to parse as JSON (QR code data)
+        const parsedQR = JSON.parse(dataToProcess);
+        studentId = parsedQR.studentId;
+        studentName = parsedQR.name || "Student";
+      } catch (jsonError) {
+        // If not JSON, treat as student name search
+        try {
+          const response = await fetch(`/api/search/students?q=${encodeURIComponent(dataToProcess)}`);
+          const searchResult = await response.json();
+          
+          if (!searchResult.success || !searchResult.data || searchResult.data.length === 0) {
+            toast({
+              title: "Student Not Found",
+              description: `No student found with name: ${dataToProcess}`,
+              variant: "destructive",
+            });
+            setIsCameraActive(false);
+            setLastScanResult("❌ Student not found");
+            return;
+          }
+          
+          // Use the first match
+          const student = searchResult.data[0].student;
+          studentId = student.id;
+          studentName = student.name;
+        } catch (searchError) {
+          console.error("Student search error:", searchError);
           toast({
-            title: "Student Not Found",
-            description: `No student found with name: ${dataToProcess}`,
+            title: "Error",
+            description: "Failed to search for student",
             variant: "destructive",
           });
           setIsCameraActive(false);
-          setLastScanResult("❌ Student not found");
+          setLastScanResult("❌ Search failed");
           return;
         }
-        
-        // Use the first match
-        const student = searchResult.data[0].student;
-        studentId = student.id;
-        studentName = student.name;
-      } catch (searchError) {
-        console.error("Student search error:", searchError);
-        toast({
-          title: "Error",
-          description: "Failed to search for student",
-          variant: "destructive",
-        });
-        setIsCameraActive(false);
-        setLastScanResult("❌ Search failed");
-        return;
       }
     }
 
@@ -1183,20 +1235,85 @@ export default function DriverPage() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-3">
                       <p className="text-xs text-muted-foreground mb-3">
-                        Use when QR code is unreadable
+                        Type student name to search
                       </p>
                       <div className="space-y-3">
-                        <Input
-                          id="student-name-input-initial"
-                          placeholder="First and Surname"
-                          value={qrInput}
-                          onChange={(e) => setQrInput(e.target.value)}
-                          data-testid="input-student-name-initial"
-                        />
+                        <Popover open={autocompleteOpen} onOpenChange={setAutocompleteOpen}>
+                          <PopoverTrigger asChild>
+                            <div className="relative">
+                              <Input
+                                id="student-name-input-initial"
+                                placeholder="Type student name..."
+                                value={qrInput}
+                                onChange={(e) => setQrInput(e.target.value)}
+                                onFocus={() => {
+                                  if (searchResults.length > 0) {
+                                    setAutocompleteOpen(true);
+                                  }
+                                }}
+                                data-testid="input-student-name-initial"
+                              />
+                              {isSearching && (
+                                <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-0" align="start">
+                            <Command>
+                              <CommandList>
+                                {searchResults.length === 0 ? (
+                                  <CommandEmpty>
+                                    {qrInput.trim().length >= 2 ? "No students found" : "Type at least 2 characters"}
+                                  </CommandEmpty>
+                                ) : (
+                                  <CommandGroup>
+                                    {searchResults.map((result) => (
+                                      <CommandItem
+                                        key={result.student.id}
+                                        value={result.student.name}
+                                        onSelect={async () => {
+                                          const selectedStudent = {
+                                            studentId: result.student.id,
+                                            studentName: result.student.name,
+                                          };
+                                          
+                                          // Set flag to prevent debounced search from re-triggering
+                                          isProcessingManualSelectionRef.current = true;
+                                          
+                                          setQrInput(selectedStudent.studentName);
+                                          setAutocompleteOpen(false);
+                                          setSearchResults([]);
+                                          
+                                          // Process the scan with selected student object (bypasses search)
+                                          await handleQRScan(selectedStudent);
+                                          
+                                          // Reset flag after a delay to allow state updates
+                                          setTimeout(() => {
+                                            isProcessingManualSelectionRef.current = false;
+                                          }, 500);
+                                        }}
+                                        data-testid={`autocomplete-item-${result.student.id}`}
+                                      >
+                                        <div className="flex items-center justify-between w-full">
+                                          <div className="flex flex-col">
+                                            <span className="font-medium">{result.student.name}</span>
+                                            <span className="text-xs text-muted-foreground">{result.student.school}</span>
+                                          </div>
+                                          <Check className="h-4 w-4 opacity-0" />
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                )}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <Button 
                           onClick={() => handleQRScan(qrInput)} 
                           className="w-full" 
                           variant="outline"
+                          disabled={!qrInput.trim()}
                           data-testid="button-manual-confirm"
                         >
                           <CheckCircle2 className="w-4 h-4 mr-2" />
