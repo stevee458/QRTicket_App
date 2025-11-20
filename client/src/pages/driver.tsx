@@ -461,7 +461,7 @@ export default function DriverPage() {
   const handleScanButtonClick = (mode: "Board" | "Alight") => {
     setScanMode(mode);
     setShowScanDialog(true);
-    setIsCameraActive(true);
+    setIsCameraActive(false); // Don't activate camera immediately
     setLastScanResult(null);
     setQrInput("");
   };
@@ -483,10 +483,49 @@ export default function DriverPage() {
     const dataToProcess = scannedData || qrInput;
     if (!dataToProcess || !session) return;
 
+    let studentId: string;
+    let studentName: string;
+
     try {
+      // Try to parse as JSON (QR code data)
       const parsedQR = JSON.parse(dataToProcess);
-      const studentId = parsedQR.studentId;
-      const studentName = parsedQR.name || "Student";
+      studentId = parsedQR.studentId;
+      studentName = parsedQR.name || "Student";
+    } catch (jsonError) {
+      // If not JSON, treat as student name search
+      try {
+        const response = await fetch(`/api/search/students?q=${encodeURIComponent(dataToProcess)}`);
+        const searchResult = await response.json();
+        
+        if (!searchResult.success || !searchResult.data || searchResult.data.length === 0) {
+          toast({
+            title: "Student Not Found",
+            description: `No student found with name: ${dataToProcess}`,
+            variant: "destructive",
+          });
+          setIsCameraActive(false);
+          setLastScanResult("❌ Student not found");
+          return;
+        }
+        
+        // Use the first match
+        const student = searchResult.data[0].student;
+        studentId = student.id;
+        studentName = student.name;
+      } catch (searchError) {
+        console.error("Student search error:", searchError);
+        toast({
+          title: "Error",
+          description: "Failed to search for student",
+          variant: "destructive",
+        });
+        setIsCameraActive(false);
+        setLastScanResult("❌ Search failed");
+        return;
+      }
+    }
+
+    try {
       const message = scanMode === "Board" ? `Hi ${studentName.split(' ')[0]}` : `Goodbye ${studentName.split(' ')[0]}`;
 
       // Check if this student was scanned very recently (within 3 seconds)
@@ -1029,15 +1068,14 @@ export default function DriverPage() {
                 
                 {/* Manual input fallback */}
                 <div className="space-y-4 mt-4 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Manual Entry (if camera fails)</p>
+                  <p className="text-sm text-muted-foreground">Manual Entry</p>
                   <div>
-                    <Label htmlFor="qr-input">QR Code Data</Label>
                     <Input
-                      id="qr-input"
-                      placeholder='{"studentId":"...","name":"...","version":1}'
+                      id="student-name-input"
+                      placeholder="First and Surname"
                       value={qrInput}
                       onChange={(e) => setQrInput(e.target.value)}
-                      data-testid="input-qr-data"
+                      data-testid="input-student-name"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -1063,6 +1101,29 @@ export default function DriverPage() {
                   </Alert>
                 )}
                 
+                {/* Manual entry option when camera is not active */}
+                <div className="space-y-4 mb-4">
+                  <p className="text-sm text-muted-foreground">Manual Entry</p>
+                  <div>
+                    <Input
+                      id="student-name-input-initial"
+                      placeholder="First and Surname"
+                      value={qrInput}
+                      onChange={(e) => setQrInput(e.target.value)}
+                      data-testid="input-student-name-initial"
+                    />
+                  </div>
+                  <Button 
+                    onClick={() => handleQRScan(qrInput)} 
+                    className="w-full" 
+                    variant="outline"
+                    data-testid="button-manual-confirm"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Confirm {scanMode}
+                  </Button>
+                </div>
+                
                 <div className="flex gap-2">
                   <Button 
                     onClick={handleNextScan} 
@@ -1070,7 +1131,7 @@ export default function DriverPage() {
                     data-testid="button-next-scan"
                   >
                     <Camera className="w-4 h-4 mr-2" />
-                    NEXT
+                    Next Scan
                   </Button>
                   <Button 
                     variant="outline" 
