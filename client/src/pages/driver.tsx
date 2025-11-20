@@ -165,6 +165,11 @@ export default function DriverPage() {
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
   const periodicSyncRef = useRef<NodeJS.Timeout | null>(null);
   const syncInFlightRef = useRef<boolean>(false);
+  
+  // GPS tracking state
+  const [currentLocation, setCurrentLocation] = useState<string>("GPS: Placeholder");
+  const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
+  const watchIdRef = useRef<number | null>(null);
 
   // Load saved session from localStorage
   useEffect(() => {
@@ -205,6 +210,40 @@ export default function DriverPage() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  // GPS tracking - request permission once and continuously track location
+  useEffect(() => {
+    if (!isLoggedIn || !("geolocation" in navigator)) {
+      return;
+    }
+
+    // Request permission and start watching position
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setCurrentLocation(`GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+        setGpsPermissionGranted(true);
+      },
+      (error) => {
+        console.error("GPS error:", error);
+        setCurrentLocation("GPS: Unavailable");
+        setGpsPermissionGranted(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000, // Cache location for 30 seconds
+      }
+    );
+
+    // Cleanup on unmount
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [isLoggedIn]);
 
   // Auto-sync logic - setup periodic sync when online
   useEffect(() => {
@@ -424,7 +463,7 @@ export default function DriverPage() {
         id: crypto.randomUUID(),
         studentId,
         scanType: scanMode === "Board" ? "On" : "Off",
-        location: "GPS: Placeholder", // TODO: Get actual GPS
+        location: currentLocation,
         forced: false,
         scannedAt: new Date().toISOString(),
         qrData: dataToProcess,

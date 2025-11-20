@@ -184,7 +184,11 @@ The application uses a relational schema with two main tables:
 ### Scan Data Capture
 Each QR scan records:
 - Date and time (ISO string)
-- GPS location (placeholder implementation)
+- GPS location (live tracking via browser geolocation API)
+  - Permission requested once on driver page load
+  - Continuous position tracking with `watchPosition()`
+  - Real GPS coordinates (latitude, longitude) captured with each scan
+  - Fallback to "GPS: Unavailable" if permission denied or GPS fails
 - Driver, vehicle, and shift details
 - Student information from QR code
 - Action type (Board/Alight)
