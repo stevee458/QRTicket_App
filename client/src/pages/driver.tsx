@@ -68,10 +68,12 @@ interface QRScannerProps {
 function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const processingRef = useRef(false);
+  const hasScannedRef = useRef(false);
 
   useEffect(() => {
     if (!isActive) {
       processingRef.current = false;
+      hasScannedRef.current = false;
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
         scannerRef.current = null;
@@ -80,6 +82,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
     }
 
     const scannerId = "qr-reader";
+    hasScannedRef.current = false;
     
     if (!scannerRef.current) {
       scannerRef.current = new Html5QrcodeScanner(
@@ -98,18 +101,28 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
 
       scannerRef.current.render(
         async (decodedText) => {
-          if (processingRef.current) return;
+          // Prevent multiple scans - stop immediately on first detection
+          if (processingRef.current || hasScannedRef.current) return;
+          
           processingRef.current = true;
+          hasScannedRef.current = true;
+          
+          // Stop scanner immediately to prevent further detections
+          if (scannerRef.current) {
+            try {
+              await scannerRef.current.clear();
+              scannerRef.current = null;
+            } catch (err) {
+              console.error("Error clearing scanner:", err);
+            }
+          }
           
           try {
             await onScan(decodedText);
           } catch (error) {
             console.error("Scan processing error:", error);
           } finally {
-            // Allow next scan after a short delay
-            setTimeout(() => {
-              processingRef.current = false;
-            }, 500);
+            processingRef.current = false;
           }
         },
         (errorMessage) => {
@@ -170,6 +183,9 @@ export default function DriverPage() {
   const [currentLocation, setCurrentLocation] = useState<string>("GPS: Placeholder");
   const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
   const watchIdRef = useRef<number | null>(null);
+  
+  // Recent scans tracking - prevent duplicate scans within 3 seconds
+  const recentScansRef = useRef<Map<string, number>>(new Map());
 
   // Load saved session from localStorage
   useEffect(() => {
@@ -244,6 +260,23 @@ export default function DriverPage() {
       }
     };
   }, [isLoggedIn]);
+
+  // Clean up recent scans map every 5 seconds to prevent memory leaks
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const entries = Array.from(recentScansRef.current.entries());
+      
+      entries.forEach(([studentId, timestamp]) => {
+        // Remove entries older than 5 seconds
+        if (now - timestamp > 5000) {
+          recentScansRef.current.delete(studentId);
+        }
+      });
+    }, 5000);
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   // Auto-sync logic - setup periodic sync when online
   useEffect(() => {
@@ -435,6 +468,16 @@ export default function DriverPage() {
       const studentName = parsedQR.name || "Student";
       const message = scanMode === "Board" ? `Hi ${studentName.split(' ')[0]}` : `Goodbye ${studentName.split(' ')[0]}`;
 
+      // Check if this student was scanned very recently (within 3 seconds)
+      const now = Date.now();
+      const lastScanTime = recentScansRef.current.get(studentId);
+      if (lastScanTime && (now - lastScanTime) < 3000) {
+        // Silently ignore duplicate scan within 3 seconds
+        setShowQRScanner(false);
+        setScanMode(null);
+        return;
+      }
+
       // Check current status
       const onboardList = onboardData?.data || [];
       const isCurrentlyOnboard = onboardList.some(s => s.id === studentId);
@@ -446,6 +489,8 @@ export default function DriverPage() {
           description: `${studentName} is already on board`,
           variant: "destructive",
         });
+        setShowQRScanner(false);
+        setScanMode(null);
         return;
       }
 
@@ -455,8 +500,13 @@ export default function DriverPage() {
           description: `${studentName} is not currently on board`,
           variant: "destructive",
         });
+        setShowQRScanner(false);
+        setScanMode(null);
         return;
       }
+
+      // Mark this student as recently scanned
+      recentScansRef.current.set(studentId, now);
 
       // Create scan record with unique ID
       const scan: PendingScan = {
