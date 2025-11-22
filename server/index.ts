@@ -25,14 +25,6 @@ app.use(
   })
 );
 
-app.use((req, res, next) => {
-  console.log(`[SESSION DEBUG] ${req.method} ${req.path}`);
-  console.log(`[SESSION DEBUG] Session ID: ${req.sessionID}`);
-  console.log(`[SESSION DEBUG] Session Data:`, req.session);
-  console.log(`[SESSION DEBUG] Cookie Header:`, req.headers.cookie);
-  next();
-});
-
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
