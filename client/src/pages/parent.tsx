@@ -160,8 +160,16 @@ export default function Parent() {
       return await response.json();
     },
     onSuccess: () => {
+      queryClient.setQueryData(["/api/parent/session"], null);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/parent/session"] });
       queryClient.invalidateQueries({ queryKey: ["/api/parent/students"] });
+      
+      setStudentVersions({});
+      setQrVersionAlert(null);
+      setUsername("");
+      setPassword("");
+      
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out",
