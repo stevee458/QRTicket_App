@@ -662,6 +662,14 @@ export default function AdminSearch() {
                   <Search className="w-4 h-4 mr-2" />
                   Search
                 </Button>
+                <Button 
+                  onClick={() => setSearchQuery("ALL")} 
+                  size="sm"
+                  variant="outline"
+                  data-testid="button-search-all"
+                >
+                  Search for All
+                </Button>
               </div>
             </Tabs>
           </CardContent>

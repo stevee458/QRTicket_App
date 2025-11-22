@@ -74,6 +74,12 @@ export interface IStorage {
   
   getAllShifts(): Promise<Shift[]>;
   
+  getAllParents(): Promise<Array<{ parent: Parent; students: StudentWithQR[] }>>;
+  
+  getAllStudents(): Promise<Array<{ student: StudentWithQR; parent: Parent }>>;
+  
+  getAllDrivers(): Promise<Driver[]>;
+  
   createQRScan(scanData: InsertQRScan): Promise<QRScan>;
   
   getStudentByQRCode(qrData: string): Promise<StudentWithQR | null>;
@@ -543,6 +549,77 @@ export class DbStorage implements IStorage {
   async getAllShifts(): Promise<Shift[]> {
     const allShifts = await db.query.shifts.findMany();
     return allShifts;
+  }
+
+  async getAllParents(): Promise<Array<{ parent: Parent; students: StudentWithQR[] }>> {
+    const allParents = await db.query.parents.findMany({
+      with: {
+        students: {
+          with: {
+            qrCodes: {
+              where: eq(qrCodeHistory.isActive, true),
+              limit: 1,
+            },
+          },
+        },
+      },
+    });
+
+    return allParents.map((parentRecord) => ({
+      parent: {
+        id: parentRecord.id,
+        name: parentRecord.name,
+        idNumber: parentRecord.idNumber,
+        phone: parentRecord.phone,
+        email: parentRecord.email,
+        createdAt: parentRecord.createdAt,
+      },
+      students: parentRecord.students.map((student) => ({
+        id: student.id,
+        name: student.name,
+        phone: student.phone,
+        email: student.email,
+        age: student.age,
+        school: student.school,
+        parentId: student.parentId,
+        createdAt: student.createdAt,
+        qrCode: student.qrCodes[0]?.qrCodeData,
+        qrCodeCreatedAt: student.qrCodes[0]?.createdAt,
+      })),
+    }));
+  }
+
+  async getAllStudents(): Promise<Array<{ student: StudentWithQR; parent: Parent }>> {
+    const allStudents = await db.query.students.findMany({
+      with: {
+        parent: true,
+        qrCodes: {
+          where: eq(qrCodeHistory.isActive, true),
+          limit: 1,
+        },
+      },
+    });
+
+    return allStudents.map((result) => ({
+      student: {
+        id: result.id,
+        name: result.name,
+        phone: result.phone,
+        email: result.email,
+        age: result.age,
+        school: result.school,
+        parentId: result.parentId,
+        createdAt: result.createdAt,
+        qrCode: result.qrCodes[0]?.qrCodeData,
+        qrCodeCreatedAt: result.qrCodes[0]?.createdAt,
+      },
+      parent: result.parent,
+    }));
+  }
+
+  async getAllDrivers(): Promise<Driver[]> {
+    const allDrivers = await db.query.drivers.findMany();
+    return allDrivers;
   }
 
   async createQRScan(scanData: InsertQRScan): Promise<QRScan> {

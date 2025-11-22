@@ -130,7 +130,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const results = await storage.searchParents(searchTerm);
+      const results = searchTerm.toUpperCase() === "ALL" 
+        ? await storage.getAllParents()
+        : await storage.searchParents(searchTerm);
       
       res.json({
         success: true,
@@ -157,7 +159,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const results = await storage.searchStudents(searchTerm);
+      const results = searchTerm.toUpperCase() === "ALL" 
+        ? await storage.getAllStudents()
+        : await storage.searchStudents(searchTerm);
       
       res.json({
         success: true,
@@ -461,7 +465,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const results = await storage.searchVehicles(searchTerm);
+      const results = searchTerm.toUpperCase() === "ALL" 
+        ? await storage.getAllVehicles()
+        : await storage.searchVehicles(searchTerm);
       
       res.json({
         success: true,
@@ -557,7 +563,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const results = await storage.searchShifts(searchTerm);
+      const results = searchTerm.toUpperCase() === "ALL" 
+        ? await storage.getAllShifts()
+        : await storage.searchShifts(searchTerm);
       
       res.json({
         success: true,
@@ -653,7 +661,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const results = await storage.searchDrivers(searchTerm);
+      const results = searchTerm.toUpperCase() === "ALL" 
+        ? await storage.getAllDrivers()
+        : await storage.searchDrivers(searchTerm);
       
       res.json({
         success: true,
