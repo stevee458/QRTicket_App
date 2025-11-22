@@ -232,6 +232,7 @@ export default function DriverPage() {
   // GPS tracking state
   const [currentLocation, setCurrentLocation] = useState<string>("GPS: Placeholder");
   const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
+  const [showGpsWarning, setShowGpsWarning] = useState(false);
   const watchIdRef = useRef<number | null>(null);
   const currentLocationRef = useRef<string>("GPS: Placeholder");
   
@@ -300,6 +301,7 @@ export default function DriverPage() {
         setCurrentLocation("GPS: Unavailable");
         currentLocationRef.current = "GPS: Unavailable";
         setGpsPermissionGranted(false);
+        setShowGpsWarning(true);
       },
       {
         enableHighAccuracy: true,
@@ -1205,10 +1207,16 @@ export default function DriverPage() {
                     onClick={handleNextScan} 
                     className="h-32 w-32 rounded-full flex flex-col items-center justify-center gap-2 text-base font-semibold" 
                     data-testid="button-next-scan"
+                    disabled={!gpsPermissionGranted}
                   >
                     <Camera className="w-8 h-8" />
                     <span>Next Scan</span>
                   </Button>
+                  {!gpsPermissionGranted && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      Camera scanning disabled - Use Manual Entry below
+                    </p>
+                  )}
                   <Button 
                     variant="outline" 
                     onClick={handleBackToMain}
@@ -1358,6 +1366,24 @@ export default function DriverPage() {
                 </Alert>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* GPS Warning Dialog */}
+        <Dialog open={showGpsWarning} onOpenChange={setShowGpsWarning}>
+          <DialogContent data-testid="dialog-gps-warning">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-destructive" />
+                GPS Unavailable
+              </DialogTitle>
+              <DialogDescription>
+                Cannot access the GPS function on this device. Camera scanning will be disabled, but you can still use Manual Entry to scan students.
+              </DialogDescription>
+            </DialogHeader>
+            <Button onClick={() => setShowGpsWarning(false)} data-testid="button-close-gps-warning">
+              I Understand
+            </Button>
           </DialogContent>
         </Dialog>
       </div>
