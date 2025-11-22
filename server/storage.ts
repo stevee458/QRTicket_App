@@ -42,7 +42,11 @@ export interface IStorage {
   
   recordScan(scanData: InsertQRScan): Promise<QRScan>;
   
-  getStudentStatus(studentId: string): Promise<StudentStatus>;
+  getStudentStatus(studentId: string): Promise<{
+    status: StudentStatus;
+    scanTime: Date | null;
+    scanLocation: string | null;
+  }>;
   
   createVehicle(data: InsertVehicle): Promise<Vehicle>;
   
@@ -421,7 +425,11 @@ export class DbStorage implements IStorage {
     return scan;
   }
 
-  async getStudentStatus(studentId: string): Promise<StudentStatus> {
+  async getStudentStatus(studentId: string): Promise<{
+    status: StudentStatus;
+    scanTime: Date | null;
+    scanLocation: string | null;
+  }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -434,26 +442,64 @@ export class DbStorage implements IStorage {
     });
 
     if (todayScans.length === 0) {
-      return "Not Boarded";
+      // Check for last alighting scan (historical)
+      const lastAlightingScan = await db.query.qrScans.findFirst({
+        where: and(
+          eq(qrScans.studentId, studentId),
+          eq(qrScans.scanType, "Off")
+        ),
+        orderBy: [desc(qrScans.scannedAt)],
+      });
+
+      return {
+        status: "Not Boarded",
+        scanTime: lastAlightingScan?.scannedAt || null,
+        scanLocation: lastAlightingScan?.location || null,
+      };
     }
 
     const lastScan = todayScans[0];
     
     if (lastScan.scanType === "On") {
-      return "Boarded";
+      return {
+        status: "Boarded",
+        scanTime: lastScan.scannedAt,
+        scanLocation: lastScan.location,
+      };
     }
 
     if (lastScan.scanType === "Off") {
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
       
       if (lastScan.scannedAt > fifteenMinutesAgo) {
-        return "Alighted";
+        return {
+          status: "Alighted",
+          scanTime: lastScan.scannedAt,
+          scanLocation: lastScan.location,
+        };
       } else {
-        return "Not Boarded";
+        // Check for last alighting scan (historical)
+        const lastAlightingScan = await db.query.qrScans.findFirst({
+          where: and(
+            eq(qrScans.studentId, studentId),
+            eq(qrScans.scanType, "Off")
+          ),
+          orderBy: [desc(qrScans.scannedAt)],
+        });
+
+        return {
+          status: "Not Boarded",
+          scanTime: lastAlightingScan?.scannedAt || null,
+          scanLocation: lastAlightingScan?.location || null,
+        };
       }
     }
 
-    return "Not Boarded";
+    return {
+      status: "Not Boarded",
+      scanTime: null,
+      scanLocation: null,
+    };
   }
 
   async createVehicle(data: InsertVehicle): Promise<Vehicle> {
@@ -640,13 +686,13 @@ export class DbStorage implements IStorage {
       }
 
       const activeQR = await this.getActiveQRCode(studentId);
-      const status = await this.getStudentStatus(studentId);
+      const statusData = await this.getStudentStatus(studentId);
 
       return {
         ...validation.student,
         qrCode: activeQR?.qrCodeData,
         qrCodeCreatedAt: activeQR?.createdAt,
-        status,
+        status: statusData.status,
       };
     } catch (error) {
       console.error("Error parsing QR code:", error);
@@ -686,12 +732,12 @@ export class DbStorage implements IStorage {
     const studentsWithQR = await Promise.all(
       onboardStudents.map(async (student) => {
         const activeQR = await this.getActiveQRCode(student.id);
-        const status = await this.getStudentStatus(student.id);
+        const statusData = await this.getStudentStatus(student.id);
         return {
           ...student,
           qrCode: activeQR?.qrCodeData,
           qrCodeCreatedAt: activeQR?.createdAt,
-          status,
+          status: statusData.status,
         };
       })
     );

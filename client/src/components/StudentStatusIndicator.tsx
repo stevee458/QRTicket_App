@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 interface StudentStatusIndicatorProps {
   studentId: string;
@@ -10,8 +11,15 @@ type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
 
 const statusOptions: StudentStatus[] = ["Not Boarded", "Boarded", "Alighted"];
 
+interface StatusResponse {
+  success: boolean;
+  status: StudentStatus;
+  scanTime: string | null;
+  scanLocation: string | null;
+}
+
 export function StudentStatusIndicator({ studentId }: StudentStatusIndicatorProps) {
-  const { data, isLoading } = useQuery<{ success: boolean; status: StudentStatus }>({
+  const { data, isLoading } = useQuery<StatusResponse>({
     queryKey: ["/api/students", studentId, "status"],
     queryFn: async () => {
       const response = await fetch(`/api/students/${studentId}/status`);
@@ -22,6 +30,27 @@ export function StudentStatusIndicator({ studentId }: StudentStatusIndicatorProp
   });
 
   const currentStatus = data?.status || "Not Boarded";
+  
+  const formatStatusText = (status: StudentStatus): string => {
+    if (!data?.scanTime) {
+      return status;
+    }
+
+    const time = format(new Date(data.scanTime), "hh:mm a");
+    const location = data.scanLocation?.includes("GPS:") 
+      ? data.scanLocation 
+      : "No Location data";
+
+    if (status === "Boarded") {
+      return `Boarded at ${time} at ${location}`;
+    } else if (status === "Alighted") {
+      return `Alighted at ${time} at ${location}`;
+    } else if (status === "Not Boarded") {
+      return `Last Alighted ${time} at ${location}`;
+    }
+
+    return status;
+  };
 
   if (isLoading) {
     return (
@@ -44,9 +73,16 @@ export function StudentStatusIndicator({ studentId }: StudentStatusIndicatorProp
             {currentStatus === status ? (
               <>
                 <Check className="w-3 h-3 text-green-600 dark:text-green-500" data-testid={`status-active-${studentId}`} />
-                <Badge variant="default" className="text-xs">
-                  {status}
-                </Badge>
+                <div className="flex flex-col gap-0.5">
+                  <Badge variant="default" className="text-xs">
+                    {status}
+                  </Badge>
+                  {data?.scanTime && (
+                    <span className="text-xs text-muted-foreground">
+                      {formatStatusText(status)}
+                    </span>
+                  )}
+                </div>
               </>
             ) : (
               <>
