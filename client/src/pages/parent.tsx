@@ -86,8 +86,8 @@ export default function Parent() {
       const response = await apiRequest("POST", "/api/parent/login", credentials);
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/parent/session"] });
+    onSuccess: (response) => {
+      queryClient.setQueryData(["/api/parent/session"], response);
       queryClient.invalidateQueries({ queryKey: ["/api/parent/students"] });
       toast({
         title: "Login Successful",
