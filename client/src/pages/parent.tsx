@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Calendar, AlertTriangle } from "lucide-react";
+import { LogOut, Calendar, AlertTriangle, Download, CheckCircle } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -69,6 +69,7 @@ export default function Parent() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [qrVersionAlert, setQrVersionAlert] = useState<{ studentId: string; studentName: string; currentVersion: number } | null>(null);
+  const [studentVersions, setStudentVersions] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   const { data: session, isLoading: sessionLoading } = useQuery<any>({
@@ -85,6 +86,8 @@ export default function Parent() {
     if (!studentsData?.data) return;
 
     const checkQRVersions = async () => {
+      const versions: Record<string, number> = {};
+      
       for (const student of studentsData.data) {
         try {
           const response = await fetch(`/api/students/${student.id}/qr-version`);
@@ -92,6 +95,8 @@ export default function Parent() {
 
           if (result.success && result.data) {
             const currentVersion = result.data.version;
+            versions[student.id] = currentVersion;
+            
             const storageKey = `qr_version_acknowledged_${student.id}`;
             const acknowledgedVersion = localStorage.getItem(storageKey);
 
@@ -118,6 +123,8 @@ export default function Parent() {
           console.error("Error checking QR version:", error);
         }
       }
+      
+      setStudentVersions(versions);
     };
 
     checkQRVersions();
@@ -169,6 +176,32 @@ export default function Parent() {
 
   const handleLogout = () => {
     logoutMutation.mutate();
+  };
+
+  const handleDownloadQR = (student: Student, version: number) => {
+    if (!student.qrCode) return;
+
+    const link = document.createElement('a');
+    link.href = student.qrCode;
+    link.download = `QR_${student.name.replace(/\s+/g, '_')}_v${version}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    const storageKey = `qr_downloaded_${student.id}_v${version}`;
+    localStorage.setItem(storageKey, 'true');
+
+    setStudentVersions(prev => ({ ...prev }));
+
+    toast({
+      title: "QR Code Downloaded",
+      description: `QR code for ${student.name} (v${version}) has been downloaded`,
+    });
+  };
+
+  const isQRDownloaded = (studentId: string, version: number): boolean => {
+    const storageKey = `qr_downloaded_${studentId}_v${version}`;
+    return localStorage.getItem(storageKey) === 'true';
   };
 
   const getDateRange = () => {
@@ -354,14 +387,40 @@ export default function Parent() {
                             className="w-32 h-32 border rounded"
                             data-testid={`img-qr-code-${student.id}`}
                           />
-                          <div className="flex-1">
+                          <div className="flex-1 space-y-2">
                             <p className="text-xs text-muted-foreground">
                               Use this QR code for bus boarding/alighting
                             </p>
                             {student.qrCodeCreatedAt && (
-                              <p className="text-xs text-muted-foreground mt-1">
+                              <p className="text-xs text-muted-foreground">
                                 Generated: {format(new Date(student.qrCodeCreatedAt), "PP")}
                               </p>
+                            )}
+                            {studentVersions[student.id] && (
+                              <p className="text-xs text-muted-foreground">
+                                Version: {studentVersions[student.id]}
+                              </p>
+                            )}
+                            {studentVersions[student.id] && (
+                              <Button
+                                size="sm"
+                                variant={isQRDownloaded(student.id, studentVersions[student.id]) ? "default" : "destructive"}
+                                onClick={() => handleDownloadQR(student, studentVersions[student.id])}
+                                className="w-full"
+                                data-testid={`button-download-qr-${student.id}`}
+                              >
+                                {isQRDownloaded(student.id, studentVersions[student.id]) ? (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    QR Downloaded (v{studentVersions[student.id]})
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Download QR Code (v{studentVersions[student.id]})
+                                  </>
+                                )}
+                              </Button>
                             )}
                           </div>
                         </div>
