@@ -192,6 +192,8 @@ export class DbStorage implements IStorage {
   }
 
   async getParentWithStudents(parentId: string): Promise<{ parent: Parent; students: StudentWithQR[] } | null> {
+    console.log("[STORAGE DEBUG] getParentWithStudents called with parentId:", parentId);
+    
     const parent = await db.query.parents.findFirst({
       where: eq(parents.id, parentId),
       with: {
@@ -206,7 +208,15 @@ export class DbStorage implements IStorage {
       },
     });
 
+    console.log("[STORAGE DEBUG] Query result:", parent ? "Found parent" : "Parent is NULL");
+    if (parent) {
+      console.log("[STORAGE DEBUG] Parent ID from DB:", parent.id);
+      console.log("[STORAGE DEBUG] Parent name from DB:", parent.name);
+      console.log("[STORAGE DEBUG] Number of students:", parent.students?.length || 0);
+    }
+
     if (!parent) {
+      console.log("[STORAGE DEBUG] Returning null - parent not found");
       return null;
     }
 
