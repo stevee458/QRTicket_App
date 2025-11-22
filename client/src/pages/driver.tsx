@@ -219,6 +219,8 @@ export default function DriverPage() {
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Array<{ student: StudentWithStatus; parent: any }>>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{ studentId: string; studentName: string } | null>(null);
+  const manualEntryInputRef = useRef<HTMLInputElement>(null);
   
   // Offline sync state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -415,6 +417,15 @@ export default function DriverPage() {
     return () => clearTimeout(timer);
   }, [qrInput, isManualEntryOpen]);
 
+  // Auto-focus manual entry input when opened
+  useEffect(() => {
+    if (isManualEntryOpen && manualEntryInputRef.current) {
+      setTimeout(() => {
+        manualEntryInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isManualEntryOpen]);
+
   const [loggedInDriver, setLoggedInDriver] = useState<Driver | null>(null);
 
   const loginMutation = useMutation({
@@ -565,6 +576,7 @@ export default function DriverPage() {
     setScanMode(null);
     setIsManualEntryOpen(false);
     setQrInput("");
+    setSelectedStudent(null);
   };
 
   const handleQRScan = useCallback(async (scannedData?: string | { studentId: string; studentName: string }) => {
@@ -1250,6 +1262,7 @@ export default function DriverPage() {
                           <PopoverTrigger asChild>
                             <div className="relative">
                               <Input
+                                ref={manualEntryInputRef}
                                 id="student-name-input-initial"
                                 placeholder="Type student name..."
                                 value={qrInput}
@@ -1271,7 +1284,7 @@ export default function DriverPage() {
                               <CommandList>
                                 {searchResults.length === 0 ? (
                                   <CommandEmpty>
-                                    {qrInput.trim().length >= 2 ? "No students found" : "Type at least 2 characters"}
+                                    {qrInput.trim().length >= 2 ? "No students found" : "Start typing to search..."}
                                   </CommandEmpty>
                                 ) : (
                                   <CommandGroup>
@@ -1279,8 +1292,8 @@ export default function DriverPage() {
                                       <CommandItem
                                         key={result.student.id}
                                         value={result.student.name}
-                                        onSelect={async () => {
-                                          const selectedStudent = {
+                                        onSelect={() => {
+                                          const selected = {
                                             studentId: result.student.id,
                                             studentName: result.student.name,
                                           };
@@ -1288,17 +1301,15 @@ export default function DriverPage() {
                                           // Set flag to prevent debounced search from re-triggering
                                           isProcessingManualSelectionRef.current = true;
                                           
-                                          setQrInput(selectedStudent.studentName);
+                                          setSelectedStudent(selected);
+                                          setQrInput(selected.studentName);
                                           setAutocompleteOpen(false);
                                           setSearchResults([]);
                                           
-                                          // Process the scan with selected student object (bypasses search)
-                                          await handleQRScan(selectedStudent);
-                                          
-                                          // Reset flag after a delay to allow state updates
+                                          // Reset flag after a brief delay
                                           setTimeout(() => {
                                             isProcessingManualSelectionRef.current = false;
-                                          }, 500);
+                                          }, 100);
                                         }}
                                         data-testid={`autocomplete-item-${result.student.id}`}
                                       >
@@ -1318,7 +1329,16 @@ export default function DriverPage() {
                           </PopoverContent>
                         </Popover>
                         <Button 
-                          onClick={() => handleQRScan(qrInput)} 
+                          onClick={() => {
+                            if (selectedStudent) {
+                              handleQRScan(selectedStudent);
+                              setSelectedStudent(null);
+                            } else {
+                              handleQRScan(qrInput);
+                            }
+                            setQrInput("");
+                            setSearchResults([]);
+                          }}
                           className="w-full" 
                           variant="outline"
                           disabled={!qrInput.trim()}
