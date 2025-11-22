@@ -97,31 +97,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/parent/:id", async (req, res) => {
-    try {
-      const result = await storage.getParentWithStudents(req.params.id);
-      
-      if (!result) {
-        res.status(404).json({
-          success: false,
-          error: "Parent not found",
-        });
-        return;
-      }
-
-      res.json({
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      console.error("Fetch parent error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch parent data",
-      });
-    }
-  });
-
   app.get("/api/search/parents", async (req, res) => {
     try {
       const searchTerm = req.query.q as string;
@@ -1052,6 +1027,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to fetch scans",
+      });
+    }
+  });
+
+  app.get("/api/parent/:id", async (req, res) => {
+    try {
+      const result = await storage.getParentWithStudents(req.params.id);
+      
+      if (!result) {
+        res.status(404).json({
+          success: false,
+          error: "Parent not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Fetch parent error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch parent data",
       });
     }
   });
