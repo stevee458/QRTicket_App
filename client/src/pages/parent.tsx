@@ -181,22 +181,64 @@ export default function Parent() {
   const handleDownloadQR = (student: Student, version: number) => {
     if (!student.qrCode) return;
 
-    const link = document.createElement('a');
-    link.href = student.qrCode;
-    link.download = `QR_${student.name.replace(/\s+/g, '_')}_v${version}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    const storageKey = `qr_downloaded_${student.id}_v${version}`;
-    localStorage.setItem(storageKey, 'true');
+      const qrSize = img.width;
+      const labelHeight = 40;
+      const padding = 10;
 
-    setStudentVersions(prev => ({ ...prev }));
+      canvas.width = qrSize;
+      canvas.height = qrSize + labelHeight;
 
-    toast({
-      title: "QR Code Downloaded",
-      description: `QR code for ${student.name} (v${version}) has been downloaded`,
-    });
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.drawImage(img, 0, 0, qrSize, qrSize);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(student.name, qrSize / 2, qrSize + labelHeight / 2);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `QR_${student.name.replace(/\s+/g, '_')}_v${version}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        const storageKey = `qr_downloaded_${student.id}_v${version}`;
+        localStorage.setItem(storageKey, 'true');
+        setStudentVersions(prev => ({ ...prev }));
+
+        toast({
+          title: "QR Code Downloaded",
+          description: `QR code for ${student.name} (v${version}) has been downloaded`,
+        });
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      toast({
+        title: "Download Failed",
+        description: "Could not load QR code image",
+        variant: "destructive",
+      });
+    };
+
+    img.src = student.qrCode;
   };
 
   const isQRDownloaded = (studentId: string, version: number): boolean => {
