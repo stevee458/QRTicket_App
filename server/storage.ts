@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver } from "@shared/schema";
-import { eq, ilike, desc, and, gte } from "drizzle-orm";
+import { eq, ilike, desc, and, gte, lte } from "drizzle-orm";
 
 export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
 
@@ -628,6 +628,8 @@ export class DbStorage implements IStorage {
         idNumber: parentRecord.idNumber,
         phone: parentRecord.phone,
         email: parentRecord.email,
+        username: parentRecord.username,
+        password: parentRecord.password,
         createdAt: parentRecord.createdAt,
       },
       students: parentRecord.students.map((student) => ({
@@ -783,7 +785,7 @@ export class DbStorage implements IStorage {
       whereClause = and(
         eq(qrScans.studentId, studentId),
         gte(qrScans.scannedAt, startDate),
-        gte(endOfDay, qrScans.scannedAt)
+        lte(qrScans.scannedAt, endOfDay)
       );
     } else if (startDate) {
       whereClause = and(
