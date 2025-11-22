@@ -889,13 +889,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       req.session.parentId = parent.id;
 
-      res.json({
-        success: true,
-        data: {
-          id: parent.id,
-          name: parent.name,
-          email: parent.email,
-        },
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          res.status(500).json({
+            success: false,
+            error: "Failed to save session",
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          data: {
+            id: parent.id,
+            name: parent.name,
+            email: parent.email,
+          },
+        });
       });
     } catch (error) {
       console.error("Parent login error:", error);
