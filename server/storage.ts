@@ -223,6 +223,8 @@ export class DbStorage implements IStorage {
         idNumber: parent.idNumber,
         phone: parent.phone,
         email: parent.email,
+        username: parent.username,
+        password: parent.password,
         createdAt: parent.createdAt,
       },
       students: studentsWithQR,
@@ -251,6 +253,8 @@ export class DbStorage implements IStorage {
         idNumber: result.idNumber,
         phone: result.phone,
         email: result.email,
+        username: result.username,
+        password: result.password,
         createdAt: result.createdAt,
       },
       students: result.students.map(student => ({
