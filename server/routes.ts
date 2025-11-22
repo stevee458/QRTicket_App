@@ -412,11 +412,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/students/:id/status", async (req, res) => {
     try {
-      const status = await storage.getStudentStatus(req.params.id);
+      const statusData = await storage.getStudentStatus(req.params.id);
 
       res.json({
         success: true,
-        status,
+        ...statusData,
       });
     } catch (error) {
       console.error("Get student status error:", error);
