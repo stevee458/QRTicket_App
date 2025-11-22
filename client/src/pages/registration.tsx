@@ -77,6 +77,8 @@ export default function Registration() {
           parentId: response.data.parent.idNumber,
           parentPhone: response.data.parent.phone,
           parentEmail: response.data.parent.email,
+          username: "",
+          password: "",
           students: studentsWithQRCodes,
         });
 

@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import StudentStatusIndicator from "@/components/StudentStatusIndicator";
+import { StudentStatusIndicator } from "@/components/StudentStatusIndicator";
 
 interface Parent {
   id: string;
@@ -71,12 +71,12 @@ export default function Parent() {
   const [qrVersionAlert, setQrVersionAlert] = useState<{ studentId: string; studentName: string; currentVersion: number } | null>(null);
   const { toast } = useToast();
 
-  const { data: session, isLoading: sessionLoading } = useQuery({
+  const { data: session, isLoading: sessionLoading } = useQuery<any>({
     queryKey: ["/api/parent/session"],
     retry: false,
   });
 
-  const { data: studentsData } = useQuery({
+  const { data: studentsData } = useQuery<any>({
     queryKey: ["/api/parent/students"],
     enabled: !!session,
   });

@@ -771,20 +771,27 @@ export class DbStorage implements IStorage {
   }
 
   async getStudentScans(studentId: string, startDate?: Date, endDate?: Date): Promise<QRScan[]> {
-    const conditions = [eq(qrScans.studentId, studentId)];
+    let whereClause;
     
-    if (startDate) {
-      conditions.push(gte(qrScans.scannedAt, startDate));
-    }
-    
-    if (endDate) {
+    if (startDate && endDate) {
       const endOfDay = new Date(endDate);
       endOfDay.setHours(23, 59, 59, 999);
-      conditions.push(gte(endOfDay, qrScans.scannedAt) as any);
+      whereClause = and(
+        eq(qrScans.studentId, studentId),
+        gte(qrScans.scannedAt, startDate),
+        gte(endOfDay, qrScans.scannedAt)
+      );
+    } else if (startDate) {
+      whereClause = and(
+        eq(qrScans.studentId, studentId),
+        gte(qrScans.scannedAt, startDate)
+      );
+    } else {
+      whereClause = eq(qrScans.studentId, studentId);
     }
     
     const scans = await db.query.qrScans.findMany({
-      where: and(...conditions),
+      where: whereClause,
       with: {
         driver: true,
         vehicle: true,

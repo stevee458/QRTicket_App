@@ -29,6 +29,8 @@ interface Parent {
   idNumber: string;
   phone: string;
   email: string;
+  username?: string | null;
+  password?: string | null;
 }
 
 interface Student {
