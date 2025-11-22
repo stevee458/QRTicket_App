@@ -96,6 +96,14 @@ export default function Parent() {
             const acknowledgedVersion = localStorage.getItem(storageKey);
 
             if (!acknowledgedVersion) {
+              if (currentVersion > 1) {
+                setQrVersionAlert({
+                  studentId: student.id,
+                  studentName: student.name,
+                  currentVersion: currentVersion,
+                });
+                break;
+              }
               localStorage.setItem(storageKey, currentVersion.toString());
             } else if (parseInt(acknowledgedVersion) !== currentVersion) {
               setQrVersionAlert({
