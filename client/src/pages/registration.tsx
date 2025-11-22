@@ -18,6 +18,8 @@ interface RegistrationData {
   parentId: string;
   parentPhone: string;
   parentEmail: string;
+  username: string;
+  password: string;
   students: Student[];
 }
 

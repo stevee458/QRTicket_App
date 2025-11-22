@@ -20,6 +20,8 @@ const formSchema = z.object({
   parentId: z.string().min(1, "Parent ID is required"),
   parentPhone: z.string().min(10, "Valid phone number is required"),
   parentEmail: z.string().email("Valid email is required"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   students: z.array(
     z.object({
       name: z.string().min(1, "Student name is required"),
@@ -53,6 +55,8 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
       parentId: "",
       parentPhone: "",
       parentEmail: "",
+      username: "",
+      password: "",
       students: [
         {
           name: "",
@@ -181,6 +185,43 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                           type="email"
                           placeholder="parent@example.com"
                           data-testid="input-parent-email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username (for Parent Portal) *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Choose a username"
+                          data-testid="input-parent-username"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password (for Parent Portal) *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Choose a password"
+                          data-testid="input-parent-password"
                           {...field}
                         />
                       </FormControl>

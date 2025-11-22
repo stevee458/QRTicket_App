@@ -10,6 +10,8 @@ const registrationSchema = z.object({
   parentId: z.string().min(1),
   parentPhone: z.string().min(10),
   parentEmail: z.string().email(),
+  username: z.string().min(3),
+  password: z.string().min(6),
   students: z.array(
     z.object({
       name: z.string().min(1),
@@ -31,6 +33,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         idNumber: data.parentId,
         phone: data.parentPhone,
         email: data.parentEmail,
+        username: data.username,
+        password: data.password,
       };
 
       const studentsData = data.students.map((student) => ({
