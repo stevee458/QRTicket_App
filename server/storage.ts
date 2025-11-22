@@ -47,6 +47,11 @@ export interface IStorage {
     scanTime: Date | null;
     scanLocation: string | null;
   }>;
+
+  getActiveQRVersion(studentId: string): Promise<{
+    version: number;
+    createdAt: Date;
+  } | null>;
   
   createVehicle(data: InsertVehicle): Promise<Vehicle>;
   
@@ -519,6 +524,27 @@ export class DbStorage implements IStorage {
       status: "Not Boarded",
       scanTime: null,
       scanLocation: null,
+    };
+  }
+
+  async getActiveQRVersion(studentId: string): Promise<{
+    version: number;
+    createdAt: Date;
+  } | null> {
+    const activeQR = await db.query.qrCodeHistory.findFirst({
+      where: and(
+        eq(qrCodeHistory.studentId, studentId),
+        eq(qrCodeHistory.isActive, true)
+      ),
+    });
+
+    if (!activeQR) {
+      return null;
+    }
+
+    return {
+      version: activeQR.version,
+      createdAt: activeQR.createdAt,
     };
   }
 

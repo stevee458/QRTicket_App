@@ -406,6 +406,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/students/:id/qr-version", async (req, res) => {
+    try {
+      const versionData = await storage.getActiveQRVersion(req.params.id);
+
+      res.json({
+        success: true,
+        data: versionData,
+      });
+    } catch (error) {
+      console.error("Get QR version error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get QR version",
+      });
+    }
+  });
+
   app.post("/api/vehicles", async (req, res) => {
     try {
       const vehicleData = insertVehicleSchema.parse(req.body);
