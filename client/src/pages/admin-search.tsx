@@ -862,6 +862,26 @@ export default function AdminSearch() {
                               data-testid="input-parent-email"
                             />
                           </div>
+                          <div>
+                            <Label htmlFor="parent-username">Username (for Parent Portal)</Label>
+                            <Input
+                              id="parent-username"
+                              value={parentFormData.username || ""}
+                              onChange={(e) => setParentFormData({ ...parentFormData, username: e.target.value })}
+                              data-testid="input-parent-username"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="parent-password">Password (for Parent Portal)</Label>
+                            <Input
+                              id="parent-password"
+                              type="password"
+                              placeholder="Leave blank to keep unchanged"
+                              value={parentFormData.password || ""}
+                              onChange={(e) => setParentFormData({ ...parentFormData, password: e.target.value })}
+                              data-testid="input-parent-password"
+                            />
+                          </div>
                         </div>
                         <div className="mt-6 pt-4 border-t">
                           <Button
@@ -884,6 +904,9 @@ export default function AdminSearch() {
                         </div>
                         <div className="md:col-span-2" data-testid={`text-parent-email-${result.parent.id}`}>
                           <span className="text-muted-foreground">Email:</span> {result.parent.email}
+                        </div>
+                        <div className="md:col-span-2" data-testid={`text-parent-username-${result.parent.id}`}>
+                          <span className="text-muted-foreground">Username:</span> {result.parent.username || <span className="text-muted-foreground italic">Not set</span>}
                         </div>
                       </div>
                     )}
