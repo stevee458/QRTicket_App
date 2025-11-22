@@ -88,7 +88,9 @@ export default function Parent() {
     },
     onSuccess: (response) => {
       queryClient.setQueryData(["/api/parent/session"], response);
-      queryClient.invalidateQueries({ queryKey: ["/api/parent/students"] });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/parent/students"] });
+      }, 150);
       toast({
         title: "Login Successful",
         description: "Welcome to the Parent Portal",
