@@ -603,16 +603,59 @@ export default function AdminSearch() {
   };
 
   const downloadQRCode = (qrCode: string, studentName: string) => {
-    const link = document.createElement("a");
-    link.href = qrCode;
-    link.download = `${studentName.replace(/\s+/g, "_")}_QR_Code.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({
-      title: "Success",
-      description: `QR code for ${studentName} downloaded`,
-    });
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const qrSize = img.width;
+      const labelHeight = 40;
+
+      canvas.width = qrSize;
+      canvas.height = qrSize + labelHeight;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.drawImage(img, 0, 0, qrSize, qrSize);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(studentName, qrSize / 2, qrSize + labelHeight / 2);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${studentName.replace(/\s+/g, "_")}_QR_Code.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Success",
+          description: `QR code for ${studentName} downloaded`,
+        });
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      toast({
+        title: "Download Failed",
+        description: "Could not load QR code image",
+        variant: "destructive",
+      });
+    };
+
+    img.src = qrCode;
   };
 
   const formatQRTimestamp = (date: Date | string | undefined) => {
