@@ -861,6 +861,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/parent/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        res.status(400).json({
+          success: false,
+          error: "Username and password are required",
+        });
+        return;
+      }
+
+      const parent = await storage.authenticateParent(username, password);
+
+      if (!parent) {
+        res.status(401).json({
+          success: false,
+          error: "Invalid username or password",
+        });
+        return;
+      }
+
+      req.session.parentId = parent.id;
+
+      res.json({
+        success: true,
+        data: {
+          id: parent.id,
+          name: parent.name,
+          email: parent.email,
+        },
+      });
+    } catch (error) {
+      console.error("Parent login error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to login",
+      });
+    }
+  });
+
+  app.post("/api/parent/logout", async (req, res) => {
+    try {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+          res.status(500).json({
+            success: false,
+            error: "Failed to logout",
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+        });
+      });
+    } catch (error) {
+      console.error("Parent logout error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to logout",
+      });
+    }
+  });
+
+  app.get("/api/parent/session", async (req, res) => {
+    try {
+      if (!req.session.parentId) {
+        res.status(401).json({
+          success: false,
+          error: "Not authenticated",
+        });
+        return;
+      }
+
+      const parent = await storage.getParentById(req.session.parentId);
+
+      if (!parent) {
+        res.status(401).json({
+          success: false,
+          error: "Parent not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: parent.id,
+          name: parent.name,
+          email: parent.email,
+        },
+      });
+    } catch (error) {
+      console.error("Get parent session error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get session",
+      });
+    }
+  });
+
+  app.get("/api/parent/students", async (req, res) => {
+    try {
+      if (!req.session.parentId) {
+        res.status(401).json({
+          success: false,
+          error: "Not authenticated",
+        });
+        return;
+      }
+
+      const result = await storage.getParentWithStudents(req.session.parentId);
+
+      if (!result) {
+        res.status(404).json({
+          success: false,
+          error: "Parent not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: result.students,
+      });
+    } catch (error) {
+      console.error("Get parent students error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch students",
+      });
+    }
+  });
+
+  app.get("/api/parent/student/:studentId/scans", async (req, res) => {
+    try {
+      if (!req.session.parentId) {
+        res.status(401).json({
+          success: false,
+          error: "Not authenticated",
+        });
+        return;
+      }
+
+      const student = await storage.getStudentWithParent(req.params.studentId);
+
+      if (!student || student.parent.id !== req.session.parentId) {
+        res.status(403).json({
+          success: false,
+          error: "Access denied",
+        });
+        return;
+      }
+
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const scans = await storage.getStudentScans(req.params.studentId, startDate, endDate);
+
+      res.json({
+        success: true,
+        data: scans,
+      });
+    } catch (error) {
+      console.error("Get student scans error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch scans",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

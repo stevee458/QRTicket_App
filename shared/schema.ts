@@ -10,6 +10,8 @@ export const parents = pgTable("parents", {
   idNumber: text("id_number").notNull(),
   phone: text("phone").notNull(),
   email: text("email").notNull(),
+  username: text("username"),
+  password: text("password"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

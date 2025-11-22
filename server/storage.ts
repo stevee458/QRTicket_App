@@ -89,6 +89,12 @@ export interface IStorage {
   getStudentByQRCode(qrData: string): Promise<StudentWithQR | null>;
   
   getOnboardStudents(driverId: string, vehicleId: string, shiftId: string): Promise<StudentWithQR[]>;
+  
+  authenticateParent(username: string, password: string): Promise<Parent | null>;
+  
+  getParentById(parentId: string): Promise<Parent | null>;
+  
+  getStudentScans(studentId: string, startDate?: Date, endDate?: Date): Promise<QRScan[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -743,6 +749,51 @@ export class DbStorage implements IStorage {
     );
 
     return studentsWithQR;
+  }
+
+  async authenticateParent(username: string, password: string): Promise<Parent | null> {
+    const parent = await db.query.parents.findFirst({
+      where: and(
+        eq(parents.username, username),
+        eq(parents.password, password)
+      ),
+    });
+    
+    return parent || null;
+  }
+
+  async getParentById(parentId: string): Promise<Parent | null> {
+    const parent = await db.query.parents.findFirst({
+      where: eq(parents.id, parentId),
+    });
+    
+    return parent || null;
+  }
+
+  async getStudentScans(studentId: string, startDate?: Date, endDate?: Date): Promise<QRScan[]> {
+    const conditions = [eq(qrScans.studentId, studentId)];
+    
+    if (startDate) {
+      conditions.push(gte(qrScans.scannedAt, startDate));
+    }
+    
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(gte(endOfDay, qrScans.scannedAt) as any);
+    }
+    
+    const scans = await db.query.qrScans.findMany({
+      where: and(...conditions),
+      with: {
+        driver: true,
+        vehicle: true,
+        shift: true,
+      },
+      orderBy: [desc(qrScans.scannedAt)],
+    });
+    
+    return scans;
   }
 }
 
