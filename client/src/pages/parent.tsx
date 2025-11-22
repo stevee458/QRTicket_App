@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +80,40 @@ export default function Parent() {
     queryKey: ["/api/parent/students"],
     enabled: !!session,
   });
+
+  useEffect(() => {
+    if (!studentsData?.data) return;
+
+    const checkQRVersions = async () => {
+      for (const student of studentsData.data) {
+        try {
+          const response = await fetch(`/api/students/${student.id}/qr-version`);
+          const result = await response.json();
+
+          if (result.success && result.data) {
+            const currentVersion = result.data.version;
+            const storageKey = `qr_version_acknowledged_${student.id}`;
+            const acknowledgedVersion = localStorage.getItem(storageKey);
+
+            if (!acknowledgedVersion) {
+              localStorage.setItem(storageKey, currentVersion.toString());
+            } else if (parseInt(acknowledgedVersion) !== currentVersion) {
+              setQrVersionAlert({
+                studentId: student.id,
+                studentName: student.name,
+                currentVersion: currentVersion,
+              });
+              break;
+            }
+          }
+        } catch (error) {
+          console.error("Error checking QR version:", error);
+        }
+      }
+    };
+
+    checkQRVersions();
+  }, [studentsData]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
@@ -482,10 +516,20 @@ export default function Parent() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setQrVersionAlert(null)}>
+            <Button variant="outline" onClick={() => {
+              if (qrVersionAlert) {
+                const storageKey = `qr_version_acknowledged_${qrVersionAlert.studentId}`;
+                localStorage.setItem(storageKey, qrVersionAlert.currentVersion.toString());
+              }
+              setQrVersionAlert(null);
+            }}>
               Dismiss
             </Button>
             <Button onClick={() => {
+              if (qrVersionAlert) {
+                const storageKey = `qr_version_acknowledged_${qrVersionAlert.studentId}`;
+                localStorage.setItem(storageKey, qrVersionAlert.currentVersion.toString());
+              }
               setQrVersionAlert(null);
               toast({
                 title: "QR Code Acknowledged",
