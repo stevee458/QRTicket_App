@@ -989,9 +989,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      console.log("[DEBUG] Getting students for parent:", req.session.parentId);
-      const result = await storage.getParentWithStudents(req.session.parentId);
-      console.log("[DEBUG] Result:", result ? `Found parent with ${result.students.length} students` : "NULL");
+      const parent = await storage.getParentById(req.session.parentId);
+
+      if (!parent) {
+        res.status(404).json({
+          success: false,
+          error: "Parent not found",
+        });
+        return;
+      }
+
+      const results = await storage.searchParents(parent.name);
+      const result = results.find(r => r.parent.id === req.session.parentId);
 
       if (!result) {
         res.status(404).json({
