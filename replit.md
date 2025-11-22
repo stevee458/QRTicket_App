@@ -156,7 +156,35 @@ The application uses a relational schema with two main tables:
 - Multi-student registration per parent
 - Unique QR codes generated for each student
 - QR codes contain JSON data: studentId, name, school, version
-- Downloadable QR codes for offline use
+- **QR Code Versioning**: Full version history tracking in qr_code_history table
+  - Each QR update creates new version (v1, v2, v3, etc.)
+  - Active version flagging for current QR code
+  - Historical versions retained (last 4 versions kept)
+- **Labeled QR Downloads**: Downloaded QR codes include student name centered at bottom
+  - Browser canvas API for client-side image generation
+  - Works in both Parent Portal and Admin Search
+  - Helps students identify their QR and drivers confirm matches
+
+### Parent Portal (Authenticated)
+- **Authentication**: Secure login with username/password
+  - Session management with express-session
+  - Immediate logout with cache clearing for security
+- **Student Information**: View all registered students with details
+- **QR Version Alerts**: Automatic detection of QR code updates
+  - localStorage tracking of acknowledged versions
+  - Alert dialog on login when student QR codes are updated
+  - Detects updates even before first login (if version > 1)
+- **QR Code Downloads**: Download labeled QR codes with student names
+  - Red button (destructive variant) when not downloaded or new version available
+  - Green button (default variant) when current version downloaded
+  - localStorage tracking of download status per version
+- **Student Status Indicator**: Real-time tracking of student location
+  - "Not Boarded" - Student hasn't boarded any bus
+  - "Boarded" - Currently on a bus (shows vehicle, driver, shift)
+  - "Alighted" - Previously boarded and alighted
+- **Trip History**: View student boarding/alighting history
+  - Filterable by date range (today, this week, last week, this month, custom)
+  - Shows timestamp, location, driver, vehicle, and shift details
 
 ### Transport Management System
 - **Vehicles**: Bus number, registration, depot management
