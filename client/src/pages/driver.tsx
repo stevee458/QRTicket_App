@@ -577,6 +577,8 @@ export default function DriverPage() {
     setIsManualEntryOpen(false);
     setQrInput("");
     setSelectedStudent(null);
+    setAutocompleteOpen(false);
+    setSearchResults([]);
   };
 
   const handleQRScan = useCallback(async (scannedData?: string | { studentId: string; studentName: string }) => {
@@ -1338,6 +1340,7 @@ export default function DriverPage() {
                             }
                             setQrInput("");
                             setSearchResults([]);
+                            setAutocompleteOpen(false);
                           }}
                           className="w-full" 
                           variant="outline"
