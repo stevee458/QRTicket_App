@@ -888,16 +888,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       req.session.parentId = parent.id;
+      console.log(`[LOGIN DEBUG] Setting parentId in session: ${parent.id}`);
+      console.log(`[LOGIN DEBUG] Session ID before save: ${req.sessionID}`);
 
       req.session.save((err) => {
         if (err) {
-          console.error("Session save error:", err);
+          console.error("[LOGIN DEBUG] Session save error:", err);
           res.status(500).json({
             success: false,
             error: "Failed to save session",
           });
           return;
         }
+
+        console.log(`[LOGIN DEBUG] Session saved successfully. Session ID: ${req.sessionID}`);
+        console.log(`[LOGIN DEBUG] Session data after save:`, req.session);
+        console.log(`[LOGIN DEBUG] Set-Cookie header:`, res.getHeader('Set-Cookie'));
 
         res.json({
           success: true,
