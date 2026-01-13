@@ -49,6 +49,7 @@ interface RegistrationFormProps {
 
 export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
   const [studentCount, setStudentCount] = useState(1);
+  const [manuallyEdited, setManuallyEdited] = useState<Record<number, { phone: boolean; email: boolean }>>({});
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -93,8 +94,10 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     const value = e.target.value;
     form.setValue("parentPhone", value);
     const students = form.getValues("students");
-    const updatedStudents = students.map((s) => {
-      return { ...s, phone: s.phone === "" ? value : s.phone };
+    const updatedStudents = students.map((s, i) => {
+      // Only update if not manually edited
+      if (manuallyEdited[i]?.phone) return s;
+      return { ...s, phone: value };
     });
     form.setValue("students", updatedStudents);
   };
@@ -103,8 +106,10 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     const value = e.target.value;
     form.setValue("parentEmail", value);
     const students = form.getValues("students");
-    const updatedStudents = students.map((s) => {
-      return { ...s, email: s.email === "" ? value : s.email };
+    const updatedStudents = students.map((s, i) => {
+      // Only update if not manually edited
+      if (manuallyEdited[i]?.email) return s;
+      return { ...s, email: value };
     });
     form.setValue("students", updatedStudents);
   };
@@ -330,6 +335,13 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                 placeholder="Student or parent phone"
                                 data-testid={`input-student-phone-${index}`}
                                 {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  setManuallyEdited(prev => ({
+                                    ...prev,
+                                    [index]: { ...prev[index], phone: true }
+                                  }));
+                                }}
                               />
                             </FormControl>
                             <FormMessage />
@@ -349,6 +361,13 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                 placeholder="Student or parent email"
                                 data-testid={`input-student-email-${index}`}
                                 {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  setManuallyEdited(prev => ({
+                                    ...prev,
+                                    [index]: { ...prev[index], email: true }
+                                  }));
+                                }}
                               />
                             </FormControl>
                             <FormMessage />
