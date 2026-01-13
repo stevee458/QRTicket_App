@@ -90,26 +90,20 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
   };
 
   const handleParentPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.currentTarget.value;
+    const value = e.target.value;
     form.setValue("parentPhone", value);
     const students = form.getValues("students");
-    const updatedStudents = students.map((s, i) => {
-      // Only update if student phone matches OLD parent phone or is empty
-      // But user said "default... unless edited".
-      // Usually "default" implies if they haven't touched it yet.
-      // For simplicity in Fast mode, let's just update if it's currently empty or matches parent.
-      // Actually, standard behavior for "sync" is often to update all that haven't been "dirtied"
-      // But for a simple registration, defaulting empty ones is safest.
+    const updatedStudents = students.map((s) => {
       return { ...s, phone: s.phone === "" ? value : s.phone };
     });
     form.setValue("students", updatedStudents);
   };
 
   const handleParentEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.currentTarget.value;
+    const value = e.target.value;
     form.setValue("parentEmail", value);
     const students = form.getValues("students");
-    const updatedStudents = students.map((s, i) => {
+    const updatedStudents = students.map((s) => {
       return { ...s, email: s.email === "" ? value : s.email };
     });
     form.setValue("students", updatedStudents);
