@@ -8,9 +8,20 @@ interface Student {
   name: string;
   phone: string;
   email: string;
-  age: string;
+  dateOfBirth: string;
   school: string;
 }
+
+const calculateAge = (dateOfBirth: string): number => {
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 interface SuccessPageProps {
   parentName: string;
@@ -117,7 +128,7 @@ export default function SuccessPage({
                   ID: {student.id}
                 </p>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Age: {student.age} • {student.email}
+                  Age: {calculateAge(student.dateOfBirth)} years • {student.email}
                 </p>
 
                 <div className="mb-4 p-3 bg-muted/30 rounded-md text-left">

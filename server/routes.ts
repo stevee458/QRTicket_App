@@ -17,7 +17,7 @@ const registrationSchema = z.object({
       name: z.string().min(1),
       phone: z.string().min(10),
       email: z.string().email(),
-      age: z.string().transform((val) => parseInt(val, 10)),
+      dateOfBirth: z.string().min(1),
       school: z.string().min(1),
     })
   ).min(1),
@@ -41,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: student.name,
         phone: student.phone,
         email: student.email,
-        age: student.age,
+        dateOfBirth: student.dateOfBirth,
         school: student.school,
       }));
 

@@ -9,7 +9,7 @@ interface Student {
   name: string;
   phone: string;
   email: string;
-  age: string;
+  dateOfBirth: string;
   school: string;
 }
 
@@ -43,7 +43,7 @@ interface RegistrationResponse {
       name: string;
       phone: string;
       email: string;
-      age: number;
+      dateOfBirth: string;
       school: string;
       qrCode: string;
     }>;
@@ -66,7 +66,7 @@ export default function Registration() {
           name: student.name,
           phone: student.phone,
           email: student.email,
-          age: student.age.toString(),
+          dateOfBirth: student.dateOfBirth,
           school: student.school,
           id: student.id,
           qrCode: student.qrCode,

@@ -38,12 +38,23 @@ interface Student {
   name: string;
   phone: string;
   email: string;
-  age: number;
+  dateOfBirth: string;
   school: string;
   parentId: string;
   qrCode?: string;
   qrCodeCreatedAt?: Date;
 }
+
+const calculateAge = (dateOfBirth: string): number => {
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 interface ParentResult {
   parent: Parent;
@@ -1043,17 +1054,17 @@ export default function AdminSearch() {
                                     />
                                   </div>
                                   <div>
-                                    <Label htmlFor={`student-age-${student.id}`} className="text-xs">
-                                      Age
+                                    <Label htmlFor={`student-dob-${student.id}`} className="text-xs">
+                                      Date of Birth
                                     </Label>
                                     <Input
-                                      id={`student-age-${student.id}`}
-                                      type="number"
-                                      value={studentFormData.age || ""}
+                                      id={`student-dob-${student.id}`}
+                                      type="date"
+                                      value={studentFormData.dateOfBirth || ""}
                                       onChange={(e) =>
-                                        setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
+                                        setStudentFormData({ ...studentFormData, dateOfBirth: e.target.value })
                                       }
-                                      data-testid="input-student-age"
+                                      data-testid="input-student-dob"
                                     />
                                   </div>
                                   <div className="md:col-span-2">
@@ -1075,7 +1086,7 @@ export default function AdminSearch() {
                               <div>
                                 <div className="grid gap-1 text-sm text-muted-foreground mb-3">
                                   <div data-testid={`text-student-details-${student.id}`}>
-                                    Age: {student.age} | School: {student.school}
+                                    Age: {calculateAge(student.dateOfBirth)} years | School: {student.school}
                                   </div>
                                   <div data-testid={`text-student-phone-${student.id}`}>Phone: {student.phone}</div>
                                   <div data-testid={`text-student-email-${student.id}`}>Email: {student.email}</div>
@@ -1217,15 +1228,15 @@ export default function AdminSearch() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="result-student-age">Age</Label>
+                            <Label htmlFor="result-student-dob">Date of Birth</Label>
                             <Input
-                              id="result-student-age"
-                              type="number"
-                              value={studentFormData.age || ""}
+                              id="result-student-dob"
+                              type="date"
+                              value={studentFormData.dateOfBirth || ""}
                               onChange={(e) =>
-                                setStudentFormData({ ...studentFormData, age: parseInt(e.target.value) || 0 })
+                                setStudentFormData({ ...studentFormData, dateOfBirth: e.target.value })
                               }
-                              data-testid="input-student-age"
+                              data-testid="input-student-dob"
                             />
                           </div>
                           <div className="md:col-span-2">
@@ -1305,7 +1316,7 @@ export default function AdminSearch() {
                       <>
                         <div className="grid gap-2 md:grid-cols-2 text-sm mb-4">
                           <div data-testid={`text-student-age-${result.student.id}`}>
-                            <span className="text-muted-foreground">Age:</span> {result.student.age}
+                            <span className="text-muted-foreground">Age:</span> {calculateAge(result.student.dateOfBirth)} years
                           </div>
                           <div data-testid={`text-student-school-${result.student.id}`}>
                             <span className="text-muted-foreground">School:</span> {result.student.school}

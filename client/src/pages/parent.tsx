@@ -35,13 +35,24 @@ interface Parent {
 interface Student {
   id: string;
   name: string;
-  age: number;
+  dateOfBirth: string;
   school: string;
   phone: string;
   email: string;
   qrCode?: string;
   qrCodeCreatedAt?: string;
 }
+
+const calculateAge = (dateOfBirth: string): number => {
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 interface QRCode {
   id: string;
@@ -413,7 +424,7 @@ export default function Parent() {
                   <CardContent className="space-y-4">
                     <div className="grid gap-2 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Age:</span> {student.age}
+                        <span className="text-muted-foreground">Age:</span> {calculateAge(student.dateOfBirth)} years
                       </div>
                       <div>
                         <span className="text-muted-foreground">Phone:</span> {student.phone}
