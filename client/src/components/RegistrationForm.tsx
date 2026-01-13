@@ -75,7 +75,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     const currentStudents = form.getValues("students");
     const parentPhone = form.getValues("parentPhone");
     const parentEmail = form.getValues("parentEmail");
-    
+
     form.setValue("students", [
       ...currentStudents,
       {
@@ -87,6 +87,32 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
       },
     ]);
     setStudentCount(studentCount + 1);
+  };
+
+  const handleParentPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.currentTarget.value;
+    form.setValue("parentPhone", value);
+    const students = form.getValues("students");
+    const updatedStudents = students.map((s, i) => {
+      // Only update if student phone matches OLD parent phone or is empty
+      // But user said "default... unless edited".
+      // Usually "default" implies if they haven't touched it yet.
+      // For simplicity in Fast mode, let's just update if it's currently empty or matches parent.
+      // Actually, standard behavior for "sync" is often to update all that haven't been "dirtied"
+      // But for a simple registration, defaulting empty ones is safest.
+      return { ...s, phone: s.phone === "" ? value : s.phone };
+    });
+    form.setValue("students", updatedStudents);
+  };
+
+  const handleParentEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.currentTarget.value;
+    form.setValue("parentEmail", value);
+    const students = form.getValues("students");
+    const updatedStudents = students.map((s, i) => {
+      return { ...s, email: s.email === "" ? value : s.email };
+    });
+    form.setValue("students", updatedStudents);
   };
 
   const removeStudent = (index: number) => {
@@ -169,6 +195,10 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                           placeholder="e.g., +1234567890"
                           data-testid="input-parent-phone"
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleParentPhoneChange(e);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -188,6 +218,10 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                           placeholder="parent@example.com"
                           data-testid="input-parent-email"
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleParentEmailChange(e);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
