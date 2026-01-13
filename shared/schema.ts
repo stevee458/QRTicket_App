@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -21,7 +21,7 @@ export const students = pgTable("students", {
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   email: text("email").notNull(),
-  age: integer("age").notNull(),
+  dateOfBirth: date("date_of_birth").notNull(),
   school: text("school").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

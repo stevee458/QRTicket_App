@@ -27,12 +27,14 @@ const formSchema = z.object({
       name: z.string().min(1, "Student name is required"),
       phone: z.string().min(10, "Valid phone number is required"),
       email: z.string().email("Valid email is required"),
-      age: z.string().min(1, "Age is required").refine(
+      dateOfBirth: z.string().min(1, "Date of birth is required").refine(
         (val) => {
-          const num = parseInt(val);
-          return !isNaN(num) && num >= 5 && num <= 25;
+          const date = new Date(val);
+          const today = new Date();
+          const age = today.getFullYear() - date.getFullYear();
+          return !isNaN(date.getTime()) && age >= 5 && age <= 25;
         },
-        { message: "Age must be between 5 and 25" }
+        { message: "Student must be between 5 and 25 years old" }
       ),
       school: z.string().min(1, "School is required"),
     })
@@ -62,7 +64,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
           name: "",
           phone: "",
           email: "",
-          age: "",
+          dateOfBirth: "",
           school: "",
         },
       ],
@@ -80,7 +82,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
         name: "",
         phone: parentPhone || "",
         email: parentEmail || "",
-        age: "",
+        dateOfBirth: "",
         school: "",
       },
     ]);
@@ -273,14 +275,14 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
 
                       <FormField
                         control={form.control}
-                        name={`students.${index}.age`}
+                        name={`students.${index}.dateOfBirth`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Age *</FormLabel>
+                            <FormLabel>Date of Birth *</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="e.g., 10"
-                                data-testid={`input-student-age-${index}`}
+                                type="date"
+                                data-testid={`input-student-dob-${index}`}
                                 {...field}
                               />
                             </FormControl>
