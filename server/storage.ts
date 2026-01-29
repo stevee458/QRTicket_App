@@ -64,6 +64,9 @@ export interface IStorage {
     status: StudentStatus;
     scanTime: Date | null;
     scanLocation: string | null;
+    vehicle: { busNumber: string; registrationNumber: string } | null;
+    shift: { shiftTitle: string } | null;
+    driver: { driverName: string } | null;
   }>;
 
   getActiveQRVersion(studentId: string): Promise<{
@@ -516,6 +519,9 @@ export class DbStorage implements IStorage {
     status: StudentStatus;
     scanTime: Date | null;
     scanLocation: string | null;
+    vehicle: { busNumber: string; registrationNumber: string } | null;
+    shift: { shiftTitle: string } | null;
+    driver: { driverName: string } | null;
   }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -526,10 +532,14 @@ export class DbStorage implements IStorage {
         gte(qrScans.scannedAt, today)
       ),
       orderBy: [desc(qrScans.scannedAt)],
+      with: {
+        vehicle: true,
+        shift: true,
+        driver: true,
+      },
     });
 
     if (todayScans.length === 0) {
-      // Check for last alighting scan (historical)
       const lastAlightingScan = await db.query.qrScans.findFirst({
         where: and(
           eq(qrScans.studentId, studentId),
@@ -542,6 +552,9 @@ export class DbStorage implements IStorage {
         status: "Not Boarded",
         scanTime: lastAlightingScan?.scannedAt || null,
         scanLocation: lastAlightingScan?.location || null,
+        vehicle: null,
+        shift: null,
+        driver: null,
       };
     }
 
@@ -552,6 +565,12 @@ export class DbStorage implements IStorage {
         status: "Boarded",
         scanTime: lastScan.scannedAt,
         scanLocation: lastScan.location,
+        vehicle: lastScan.vehicle ? { 
+          busNumber: lastScan.vehicle.busNumber, 
+          registrationNumber: lastScan.vehicle.registrationNumber 
+        } : null,
+        shift: lastScan.shift ? { shiftTitle: lastScan.shift.shiftTitle } : null,
+        driver: lastScan.driver ? { driverName: lastScan.driver.driverName } : null,
       };
     }
 
@@ -563,9 +582,11 @@ export class DbStorage implements IStorage {
           status: "Alighted",
           scanTime: lastScan.scannedAt,
           scanLocation: lastScan.location,
+          vehicle: null,
+          shift: null,
+          driver: null,
         };
       } else {
-        // Check for last alighting scan (historical)
         const lastAlightingScan = await db.query.qrScans.findFirst({
           where: and(
             eq(qrScans.studentId, studentId),
@@ -578,6 +599,9 @@ export class DbStorage implements IStorage {
           status: "Not Boarded",
           scanTime: lastAlightingScan?.scannedAt || null,
           scanLocation: lastAlightingScan?.location || null,
+          vehicle: null,
+          shift: null,
+          driver: null,
         };
       }
     }
@@ -586,6 +610,9 @@ export class DbStorage implements IStorage {
       status: "Not Boarded",
       scanTime: null,
       scanLocation: null,
+      vehicle: null,
+      shift: null,
+      driver: null,
     };
   }
 

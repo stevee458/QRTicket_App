@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, MapPin, Bus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { MapPin, Bus, Clock } from "lucide-react";
 import { format } from "date-fns";
 
 interface StudentStatusIndicatorProps {
@@ -9,13 +8,14 @@ interface StudentStatusIndicatorProps {
 
 type TransportStatus = "Not Boarded" | "Boarded" | "Alighted";
 
-const transportStatusOptions: TransportStatus[] = ["Not Boarded", "Boarded", "Alighted"];
-
 interface StatusResponse {
   success: boolean;
   status: TransportStatus;
   scanTime: string | null;
   scanLocation: string | null;
+  vehicle: { busNumber: string; registrationNumber: string } | null;
+  shift: { shiftTitle: string } | null;
+  driver: { driverName: string } | null;
 }
 
 interface VenueStatusResponse {
@@ -48,30 +48,6 @@ export function StudentStatusIndicator({ studentId }: StudentStatusIndicatorProp
     refetchInterval: 30000,
   });
 
-  const currentTransportStatus = transportData?.status || "Not Boarded";
-  const venueStatus = venueData?.data;
-  
-  const formatTransportStatusText = (status: TransportStatus): string => {
-    if (!transportData?.scanTime) {
-      return status;
-    }
-
-    const time = format(new Date(transportData.scanTime), "hh:mm a");
-    const location = transportData.scanLocation?.includes("GPS:") 
-      ? transportData.scanLocation 
-      : "No Location data";
-
-    if (status === "Boarded") {
-      return `Boarded at ${time} at ${location}`;
-    } else if (status === "Alighted") {
-      return `Alighted at ${time} at ${location}`;
-    } else if (status === "Not Boarded") {
-      return `Last Alighted ${time} at ${location}`;
-    }
-
-    return status;
-  };
-
   if (isLoadingTransport || isLoadingVenue) {
     return (
       <div className="text-xs text-muted-foreground" data-testid={`status-loading-${studentId}`}>
@@ -80,76 +56,117 @@ export function StudentStatusIndicator({ studentId }: StudentStatusIndicatorProp
     );
   }
 
+  const currentTransportStatus = transportData?.status || "Not Boarded";
+  const venueStatus = venueData?.data;
+  const isOnBus = currentTransportStatus === "Boarded";
+  const isAtVenue = venueStatus?.isAtVenue && venueStatus?.venueName;
+
+  const formatTime = (timeStr: string | null) => {
+    if (!timeStr) return "";
+    return format(new Date(timeStr), "h:mm a");
+  };
+
   return (
-    <div className="space-y-3" data-testid={`status-indicator-${studentId}`}>
-      {venueStatus && venueStatus.isAtVenue && venueStatus.venueName && (
-        <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
-          <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <div className="flex flex-col">
-            <Badge variant="secondary" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-              At Venue: {venueStatus.venueName}
-            </Badge>
-            {venueStatus.scanTime && (
-              <span className="text-xs text-muted-foreground mt-1">
-                Since {format(new Date(venueStatus.scanTime), "hh:mm a")}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="space-y-2" data-testid={`status-indicator-${studentId}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Current Status
+      </div>
 
-      {venueStatus && !venueStatus.isAtVenue && venueStatus.venueName && (
-        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-md border border-gray-200 dark:border-gray-700">
-          <MapPin className="w-4 h-4 text-gray-500" />
-          <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground">
-              Left Venue: {venueStatus.venueName}
+      {isOnBus && (
+        <div 
+          className="p-3 rounded-lg border-2 border-green-500 bg-green-50 dark:bg-green-950"
+          data-testid={`status-boarded-${studentId}`}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Bus className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <span className="font-bold text-green-700 dark:text-green-300 text-lg">
+              On Bus
             </span>
-            {venueStatus.scanTime && (
-              <span className="text-xs text-muted-foreground">
-                at {format(new Date(venueStatus.scanTime), "hh:mm a")}
-              </span>
+          </div>
+          <div className="space-y-1 text-sm">
+            {transportData?.vehicle && (
+              <div className="font-medium text-green-800 dark:text-green-200">
+                Bus: {transportData.vehicle.busNumber}
+              </div>
+            )}
+            {transportData?.shift && (
+              <div className="text-green-700 dark:text-green-300">
+                Shift: {transportData.shift.shiftTitle}
+              </div>
+            )}
+            {transportData?.driver && (
+              <div className="text-green-600 dark:text-green-400 text-xs">
+                Driver: {transportData.driver.driverName}
+              </div>
+            )}
+            {transportData?.scanTime && (
+              <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs mt-2">
+                <Clock className="w-3 h-3" />
+                Boarded at {formatTime(transportData.scanTime)}
+              </div>
+            )}
+            {transportData?.scanLocation && (
+              <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs">
+                <MapPin className="w-3 h-3" />
+                {transportData.scanLocation}
+              </div>
             )}
           </div>
         </div>
       )}
 
-      <div>
-        <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-          <Bus className="w-3 h-3" />
-          Transport Status:
+      {isAtVenue && !isOnBus && (
+        <div 
+          className="p-3 rounded-lg border-2 border-blue-500 bg-blue-50 dark:bg-blue-950"
+          data-testid={`status-venue-${studentId}`}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <span className="font-bold text-blue-700 dark:text-blue-300 text-lg">
+              At Venue
+            </span>
+          </div>
+          <div className="space-y-1 text-sm">
+            <div className="font-medium text-blue-800 dark:text-blue-200">
+              {venueStatus?.venueName}
+            </div>
+            {venueStatus?.scanTime && (
+              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs">
+                <Clock className="w-3 h-3" />
+                Checked in at {formatTime(venueStatus.scanTime)}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          {transportStatusOptions.map((status) => (
-            <div
-              key={status}
-              className="flex items-center gap-2 text-xs"
-              data-testid={`status-option-${status.toLowerCase().replace(/\s+/g, "-")}-${studentId}`}
-            >
-              {currentTransportStatus === status ? (
-                <>
-                  <Check className="w-3 h-3 text-green-600 dark:text-green-500" data-testid={`status-active-${studentId}`} />
-                  <div className="flex flex-col gap-0.5">
-                    <Badge variant="default" className="text-xs">
-                      {status}
-                    </Badge>
-                    {transportData?.scanTime && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatTransportStatusText(status)}
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-3 h-3" />
-                  <span className="text-muted-foreground">{status}</span>
-                </>
+      )}
+
+      {!isOnBus && !isAtVenue && (
+        <div 
+          className="p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900"
+          data-testid={`status-not-active-${studentId}`}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-gray-400 dark:bg-gray-500" />
+            <span className="font-medium text-gray-600 dark:text-gray-400">
+              {currentTransportStatus === "Alighted" ? "Alighted" : "Not Currently Active"}
+            </span>
+          </div>
+          {transportData?.scanTime && currentTransportStatus === "Alighted" && (
+            <div className="ml-5 mt-2 space-y-1">
+              <div className="flex items-center gap-1 text-gray-500 text-xs">
+                <Clock className="w-3 h-3" />
+                Last alighted at {formatTime(transportData.scanTime)}
+              </div>
+              {transportData?.scanLocation && (
+                <div className="flex items-center gap-1 text-gray-500 text-xs">
+                  <MapPin className="w-3 h-3" />
+                  {transportData.scanLocation}
+                </div>
               )}
             </div>
-          ))}
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
