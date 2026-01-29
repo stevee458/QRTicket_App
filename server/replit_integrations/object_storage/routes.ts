@@ -116,13 +116,17 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
       }
 
-      await objectStorageService.deleteObjectEntity(objectPath);
+      try {
+        await objectStorageService.deleteObjectEntity(objectPath);
+      } catch (deleteError) {
+        // If file not found, treat as success (already deleted)
+        if (!(deleteError instanceof ObjectNotFoundError)) {
+          throw deleteError;
+        }
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting object:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.status(404).json({ error: "Object not found" });
-      }
       return res.status(500).json({ error: "Failed to delete object" });
     }
   });
