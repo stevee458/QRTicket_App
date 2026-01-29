@@ -24,8 +24,8 @@ interface VenueStaff {
 interface Venue {
   id: string;
   name: string;
-  locationLat: number;
-  locationLng: number;
+  locationLat: string | number | null;
+  locationLng: string | number | null;
 }
 
 interface StudentWithStatus {
@@ -279,14 +279,18 @@ export default function VenuePage() {
         setCurrentLocationString(`GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
         setGpsPermissionGranted(true);
         
-        if (session?.venue) {
-          const distance = calculateDistance(
-            latitude,
-            longitude,
-            session.venue.locationLat,
-            session.venue.locationLng
-          );
-          setLocationConfirmed(distance <= 250);
+        if (session?.venue && session.venue.locationLat && session.venue.locationLng) {
+          const venueLat = typeof session.venue.locationLat === 'string' 
+            ? parseFloat(session.venue.locationLat) 
+            : session.venue.locationLat;
+          const venueLng = typeof session.venue.locationLng === 'string' 
+            ? parseFloat(session.venue.locationLng) 
+            : session.venue.locationLng;
+          
+          if (!isNaN(venueLat) && !isNaN(venueLng)) {
+            const distance = calculateDistance(latitude, longitude, venueLat, venueLng);
+            setLocationConfirmed(distance <= 250);
+          }
         }
       },
       (error) => {
