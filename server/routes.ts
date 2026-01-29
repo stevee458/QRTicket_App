@@ -1163,6 +1163,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      const studentExists = await storage.getStudentWithParent(studentId);
+      if (!studentExists) {
+        res.status(404).json({
+          success: false,
+          error: "STUDENT_NOT_FOUND",
+          message: "This QR code belongs to a student that no longer exists in the system. Please use an updated QR code.",
+        });
+        return;
+      }
+
       const scan = await storage.createVenueScan({
         venueId,
         staffId,
@@ -1303,6 +1313,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/scan", async (req, res) => {
     try {
       const scanData = insertQRScanSchema.parse(req.body);
+      
+      const studentExists = await storage.getStudentWithParent(scanData.studentId);
+      if (!studentExists) {
+        res.status(404).json({
+          success: false,
+          error: "STUDENT_NOT_FOUND",
+          message: "This QR code belongs to a student that no longer exists in the system. Please use an updated QR code.",
+        });
+        return;
+      }
       
       const scan = await storage.createQRScan(scanData);
       
