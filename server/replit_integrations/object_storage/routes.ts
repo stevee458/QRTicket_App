@@ -82,5 +82,36 @@ export function registerObjectStorageRoutes(app: Express): void {
       return res.status(500).json({ error: "Failed to serve object" });
     }
   });
+
+  /**
+   * Delete an uploaded object.
+   *
+   * DELETE /api/uploads/delete
+   *
+   * Request body (JSON):
+   * {
+   *   "objectPath": "/objects/uploads/uuid"
+   * }
+   */
+  app.delete("/api/uploads/delete", async (req, res) => {
+    try {
+      const { objectPath } = req.body;
+
+      if (!objectPath) {
+        return res.status(400).json({
+          error: "Missing required field: objectPath",
+        });
+      }
+
+      await objectStorageService.deleteObjectEntity(objectPath);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "Object not found" });
+      }
+      return res.status(500).json({ error: "Failed to delete object" });
+    }
+  });
 }
 
