@@ -480,6 +480,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/search/venues", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm) {
+        res.status(400).json({
+          success: false,
+          error: "Search term is required",
+        });
+        return;
+      }
+
+      const allVenues = await storage.getAllVenues();
+      
+      let results;
+      if (searchTerm.toUpperCase() === "ALL") {
+        results = allVenues;
+      } else {
+        const lowerSearch = searchTerm.toLowerCase();
+        results = allVenues.filter(venue => 
+          venue.name.toLowerCase().includes(lowerSearch) ||
+          (venue.locationDescription && venue.locationDescription.toLowerCase().includes(lowerSearch))
+        );
+      }
+      
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (error) {
+      console.error("Search venues error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to search venues",
+      });
+    }
+  });
+
   app.put("/api/vehicles/:id", async (req, res) => {
     try {
       const updateData = insertVehicleSchema.partial().parse(req.body);

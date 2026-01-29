@@ -103,6 +103,23 @@ interface Driver {
   pdpImage?: string | null;
 }
 
+interface Venue {
+  id: string;
+  name: string;
+  locationDescription?: string | null;
+  locationLat?: string | null;
+  locationLng?: string | null;
+  contactDetails?: string | null;
+  description?: string | null;
+}
+
+interface VenueStaff {
+  id: string;
+  venueId: string;
+  name: string;
+  password?: string;
+}
+
 function VehicleImageUpload({ 
   vehicleId, 
   field, 
@@ -262,7 +279,7 @@ function DriverImageUpload({
 }
 
 export default function AdminSearch() {
-  const [searchType, setSearchType] = useState<"parent" | "student" | "driver" | "shift" | "vehicle">("parent");
+  const [searchType, setSearchType] = useState<"parent" | "student" | "driver" | "shift" | "vehicle" | "venue">("parent");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingParent, setEditingParent] = useState<string | null>(null);
@@ -270,6 +287,8 @@ export default function AdminSearch() {
   const [editingDriver, setEditingDriver] = useState<string | null>(null);
   const [editingShift, setEditingShift] = useState<string | null>(null);
   const [editingVehicle, setEditingVehicle] = useState<string | null>(null);
+  const [editingVenue, setEditingVenue] = useState<string | null>(null);
+  const [editingVenueStaff, setEditingVenueStaff] = useState<string | null>(null);
   const [parentFormData, setParentFormData] = useState<Partial<Parent>>({});
   const [studentFormData, setStudentFormData] = useState<Partial<Student>>({});
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
@@ -288,6 +307,13 @@ export default function AdminSearch() {
   const [vehicleFormData, setVehicleFormData] = useState<Partial<Vehicle>>({});
   const [shiftFormData, setShiftFormData] = useState<Partial<Shift>>({});
   const [driverFormData, setDriverFormData] = useState<Partial<Driver>>({});
+  const [venueFormData, setVenueFormData] = useState<Partial<Venue>>({});
+  const [venueStaffFormData, setVenueStaffFormData] = useState<Partial<VenueStaff>>({});
+  const [showDeleteVenueDialog, setShowDeleteVenueDialog] = useState(false);
+  const [venueToDelete, setVenueToDelete] = useState<string | null>(null);
+  const [showDeleteVenueStaffDialog, setShowDeleteVenueStaffDialog] = useState(false);
+  const [venueStaffToDelete, setVenueStaffToDelete] = useState<string | null>(null);
+  const [venueStaffList, setVenueStaffList] = useState<VenueStaff[]>([]);
   const [showDeleteImageDialog, setShowDeleteImageDialog] = useState(false);
   const [imageToDelete, setImageToDelete] = useState<{
     entityType: "vehicle" | "driver";
@@ -366,6 +392,20 @@ export default function AdminSearch() {
       return await response.json();
     },
     enabled: searchType === "vehicle" && searchQuery.length > 0,
+  });
+
+  const {
+    data: venueResults,
+    isLoading: loadingVenues,
+    error: venueError,
+  } = useQuery<{ success: boolean; data: Venue[] }>({
+    queryKey: ["/api/search/venues", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/search/venues?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Failed to search venues");
+      return await response.json();
+    },
+    enabled: searchType === "venue" && searchQuery.length > 0,
   });
 
   const updateParentMutation = useMutation({
@@ -656,6 +696,112 @@ export default function AdminSearch() {
     },
   });
 
+  const updateVenueMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Venue> }) => {
+      const response = await apiRequest("PUT", `/api/venues/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/venues"] });
+      setEditingVenue(null);
+      setVenueFormData({});
+      toast({
+        title: "Success",
+        description: "Venue updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update venue",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteVenueMutation = useMutation({
+    mutationFn: async (venueId: string) => {
+      const response = await apiRequest("DELETE", `/api/venues/${venueId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/venues"] });
+      setEditingVenue(null);
+      setVenueFormData({});
+      toast({
+        title: "Success",
+        description: "Venue deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete venue",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateVenueStaffMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<VenueStaff> }) => {
+      const response = await apiRequest("PUT", `/api/venue-staff/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      if (editingVenue) {
+        fetchVenueStaff(editingVenue);
+      }
+      setEditingVenueStaff(null);
+      setVenueStaffFormData({});
+      toast({
+        title: "Success",
+        description: "Staff member updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update staff member",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteVenueStaffMutation = useMutation({
+    mutationFn: async (staffId: string) => {
+      const response = await apiRequest("DELETE", `/api/venue-staff/${staffId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      if (editingVenue) {
+        fetchVenueStaff(editingVenue);
+      }
+      toast({
+        title: "Success",
+        description: "Staff member deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete staff member",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchVenueStaff = async (venueId: string) => {
+    try {
+      const response = await fetch(`/api/venues/${venueId}/staff`);
+      const result = await response.json();
+      if (result.success) {
+        setVenueStaffList(result.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch venue staff:", error);
+    }
+  };
+
   // Clear search state when switching between tabs
   useEffect(() => {
     setSearchTerm("");
@@ -928,7 +1074,7 @@ export default function AdminSearch() {
             <CardTitle>Search</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as "parent" | "student" | "driver" | "shift" | "vehicle")}>
+            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as "parent" | "student" | "driver" | "shift" | "vehicle" | "venue")}>
               <TabsList className="mb-4">
                 <TabsTrigger value="parent" data-testid="tab-parent">
                   Parent
@@ -944,6 +1090,9 @@ export default function AdminSearch() {
                 </TabsTrigger>
                 <TabsTrigger value="vehicle" data-testid="tab-search-vehicle">
                   Vehicle
+                </TabsTrigger>
+                <TabsTrigger value="venue" data-testid="tab-search-venue">
+                  Venue
                 </TabsTrigger>
               </TabsList>
 
@@ -1064,6 +1213,24 @@ export default function AdminSearch() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Failed to search vehicles. Please try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {loadingVenues && searchType === "venue" && (
+          <Card data-testid="card-loading">
+            <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching for venues...
+            </CardContent>
+          </Card>
+        )}
+
+        {venueError && searchType === "venue" && (
+          <Alert variant="destructive" data-testid="alert-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to search venues. Please try again.
             </AlertDescription>
           </Alert>
         )}
@@ -2226,7 +2393,310 @@ export default function AdminSearch() {
             )}
           </div>
         )}
+
+        {searchType === "venue" && venueResults?.data && !loadingVenues && (
+          <div className="space-y-4">
+            {venueResults.data.length === 0 ? (
+              <Card data-testid="card-no-results">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No venues found matching "{searchQuery}"
+                </CardContent>
+              </Card>
+            ) : (
+              venueResults.data.map((venue) => (
+                <Card key={venue.id} data-testid={`card-venue-${venue.id}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle>Venue: {venue.name}</CardTitle>
+                    {editingVenue === venue.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            updateVenueMutation.mutate({ id: venue.id, data: venueFormData });
+                          }}
+                          disabled={updateVenueMutation.isPending}
+                          data-testid={`button-save-venue-${venue.id}`}
+                        >
+                          {updateVenueMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingVenue(null);
+                            setVenueStaffList([]);
+                          }}
+                          data-testid={`button-cancel-edit-venue-${venue.id}`}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingVenue(venue.id);
+                          setVenueFormData(venue);
+                          fetchVenueStaff(venue.id);
+                        }}
+                        data-testid={`button-edit-venue-${venue.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {editingVenue === venue.id ? (
+                      <>
+                        <div className="grid gap-4 md:grid-cols-2 mb-6">
+                          <div>
+                            <Label htmlFor="venue-name">Venue Name</Label>
+                            <Input
+                              id="venue-name"
+                              value={venueFormData.name || ""}
+                              onChange={(e) => setVenueFormData({ ...venueFormData, name: e.target.value })}
+                              data-testid="input-venue-name-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="venue-location">Location Description</Label>
+                            <Input
+                              id="venue-location"
+                              value={venueFormData.locationDescription || ""}
+                              onChange={(e) => setVenueFormData({ ...venueFormData, locationDescription: e.target.value })}
+                              data-testid="input-venue-location-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="venue-lat">Latitude</Label>
+                            <Input
+                              id="venue-lat"
+                              value={venueFormData.locationLat || ""}
+                              onChange={(e) => setVenueFormData({ ...venueFormData, locationLat: e.target.value })}
+                              data-testid="input-venue-lat-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="venue-lng">Longitude</Label>
+                            <Input
+                              id="venue-lng"
+                              value={venueFormData.locationLng || ""}
+                              onChange={(e) => setVenueFormData({ ...venueFormData, locationLng: e.target.value })}
+                              data-testid="input-venue-lng-edit"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="venue-contact">Contact Details</Label>
+                            <Input
+                              id="venue-contact"
+                              value={venueFormData.contactDetails || ""}
+                              onChange={(e) => setVenueFormData({ ...venueFormData, contactDetails: e.target.value })}
+                              data-testid="input-venue-contact-edit"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="venue-description">Description</Label>
+                            <Textarea
+                              id="venue-description"
+                              value={venueFormData.description || ""}
+                              onChange={(e) => setVenueFormData({ ...venueFormData, description: e.target.value })}
+                              data-testid="input-venue-description-edit"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t pt-4 mb-4">
+                          <h4 className="font-medium mb-3">Staff Members</h4>
+                          {venueStaffList.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No staff members registered</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {venueStaffList.map((staff) => (
+                                <div key={staff.id} className="flex items-center justify-between p-2 border rounded">
+                                  {editingVenueStaff === staff.id ? (
+                                    <div className="flex-1 flex items-center gap-2">
+                                      <Input
+                                        value={venueStaffFormData.name || ""}
+                                        onChange={(e) => setVenueStaffFormData({ ...venueStaffFormData, name: e.target.value })}
+                                        placeholder="Name"
+                                        className="flex-1"
+                                        data-testid={`input-staff-name-${staff.id}`}
+                                      />
+                                      <Input
+                                        type="password"
+                                        value={venueStaffFormData.password || ""}
+                                        onChange={(e) => setVenueStaffFormData({ ...venueStaffFormData, password: e.target.value })}
+                                        placeholder="New Password (optional)"
+                                        className="flex-1"
+                                        data-testid={`input-staff-password-${staff.id}`}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          updateVenueStaffMutation.mutate({ id: staff.id, data: venueStaffFormData });
+                                        }}
+                                        disabled={updateVenueStaffMutation.isPending}
+                                      >
+                                        <Save className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setEditingVenueStaff(null);
+                                          setVenueStaffFormData({});
+                                        }}
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <span>{staff.name}</span>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => {
+                                            setEditingVenueStaff(staff.id);
+                                            setVenueStaffFormData({ name: staff.name, password: "" });
+                                          }}
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          onClick={() => {
+                                            setVenueStaffToDelete(staff.id);
+                                            setShowDeleteVenueStaffDialog(true);
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t pt-4">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setVenueToDelete(venue.id);
+                              setShowDeleteVenueDialog(true);
+                            }}
+                            data-testid={`button-delete-venue-${venue.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Venue
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="grid gap-2 text-sm">
+                        <div data-testid={`text-venue-name-${venue.id}`}>
+                          <span className="text-muted-foreground">Name:</span> {venue.name}
+                        </div>
+                        {venue.locationDescription && (
+                          <div data-testid={`text-venue-location-${venue.id}`}>
+                            <span className="text-muted-foreground">Location:</span> {venue.locationDescription}
+                          </div>
+                        )}
+                        {(venue.locationLat && venue.locationLng) && (
+                          <div data-testid={`text-venue-coords-${venue.id}`}>
+                            <span className="text-muted-foreground">Coordinates:</span> {venue.locationLat}, {venue.locationLng}
+                          </div>
+                        )}
+                        {venue.contactDetails && (
+                          <div data-testid={`text-venue-contact-${venue.id}`}>
+                            <span className="text-muted-foreground">Contact:</span> {venue.contactDetails}
+                          </div>
+                        )}
+                        {venue.description && (
+                          <div data-testid={`text-venue-description-${venue.id}`}>
+                            <span className="text-muted-foreground">Description:</span> {venue.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
       </div>
+
+      <AlertDialog open={showDeleteVenueDialog} onOpenChange={setShowDeleteVenueDialog}>
+        <AlertDialogContent data-testid="dialog-delete-venue">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Venue</AlertDialogTitle>
+            <AlertDialogDescription>
+              Warning: This action will delete the venue and all associated staff members.
+              This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-venue">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (venueToDelete) {
+                  deleteVenueMutation.mutate(venueToDelete);
+                }
+                setShowDeleteVenueDialog(false);
+                setVenueToDelete(null);
+              }}
+              data-testid="button-confirm-delete-venue"
+            >
+              Delete Venue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteVenueStaffDialog} onOpenChange={setShowDeleteVenueStaffDialog}>
+        <AlertDialogContent data-testid="dialog-delete-venue-staff">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this staff member? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-venue-staff">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (venueStaffToDelete) {
+                  deleteVenueStaffMutation.mutate(venueStaffToDelete);
+                }
+                setShowDeleteVenueStaffDialog(false);
+                setVenueStaffToDelete(null);
+              }}
+              data-testid="button-confirm-delete-venue-staff"
+            >
+              Delete Staff Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
         <AlertDialogContent data-testid="dialog-regenerate-qr">
