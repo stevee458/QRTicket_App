@@ -1626,7 +1626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
-      const scans = await storage.getStudentScans(req.params.studentId, startDate, endDate);
+      const scans = await storage.getStudentAllScans(req.params.studentId, startDate, endDate);
 
       res.json({
         success: true,

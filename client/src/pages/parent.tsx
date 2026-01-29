@@ -64,12 +64,17 @@ interface QRCode {
 
 interface Scan {
   id: string;
+  studentId: string;
   scanType: string;
-  location: string;
   scannedAt: string;
-  driver?: { driverName: string; companyNumber: string };
-  vehicle?: { busNumber: string; registrationNumber: string };
-  shift?: { shiftTitle: string };
+  location: string | null;
+  forced: boolean;
+  source: "vehicle" | "venue";
+  driver?: { id: string; name: string } | null;
+  vehicle?: { id: string; busNumber: string } | null;
+  shift?: { id: string; title: string } | null;
+  venue?: { id: string; name: string } | null;
+  staff?: { id: string; name: string } | null;
 }
 
 export default function Parent() {
@@ -581,8 +586,11 @@ export default function Parent() {
                           >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
-                                <Badge variant={scan.scanType === "On" ? "default" : "secondary"}>
-                                  {scan.scanType === "On" ? "Boarded" : "Alighted"}
+                                <Badge variant={scan.source === "vehicle" ? "default" : "outline"}>
+                                  {scan.source === "vehicle" ? "Bus" : "Venue"}
+                                </Badge>
+                                <Badge variant={scan.scanType === "Board" || scan.scanType === "Check In" ? "default" : "secondary"}>
+                                  {scan.scanType}
                                 </Badge>
                                 <span className="text-sm font-medium">
                                   {format(new Date(scan.scannedAt), "PPp")}
@@ -590,20 +598,38 @@ export default function Parent() {
                               </div>
                             </div>
                             <div className="text-sm space-y-1">
-                              {scan.driver && (
-                                <div className="text-muted-foreground">
-                                  Driver: {scan.driver.driverName} ({scan.driver.companyNumber})
-                                </div>
+                              {scan.source === "vehicle" && (
+                                <>
+                                  {scan.driver && (
+                                    <div className="text-muted-foreground">
+                                      Driver: {scan.driver.name}
+                                    </div>
+                                  )}
+                                  {scan.vehicle && (
+                                    <div className="text-muted-foreground">
+                                      Bus: {scan.vehicle.busNumber}
+                                    </div>
+                                  )}
+                                  {scan.shift && (
+                                    <div className="text-muted-foreground">
+                                      Shift: {scan.shift.title}
+                                    </div>
+                                  )}
+                                </>
                               )}
-                              {scan.vehicle && (
-                                <div className="text-muted-foreground">
-                                  Bus: {scan.vehicle.busNumber} - {scan.vehicle.registrationNumber}
-                                </div>
-                              )}
-                              {scan.shift && (
-                                <div className="text-muted-foreground">
-                                  Shift: {scan.shift.shiftTitle}
-                                </div>
+                              {scan.source === "venue" && (
+                                <>
+                                  {scan.venue && (
+                                    <div className="text-muted-foreground">
+                                      Venue: {scan.venue.name}
+                                    </div>
+                                  )}
+                                  {scan.staff && (
+                                    <div className="text-muted-foreground">
+                                      Staff: {scan.staff.name}
+                                    </div>
+                                  )}
+                                </>
                               )}
                               <div className="text-muted-foreground">
                                 Location: {scan.location || "Not available"}

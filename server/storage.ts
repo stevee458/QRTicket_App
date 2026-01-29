@@ -7,6 +7,23 @@ export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
 
 export type StudentWithQR = Student & { qrCode?: string; qrCodeCreatedAt?: Date; status?: StudentStatus };
 
+export type CombinedScan = {
+  id: string;
+  studentId: string;
+  scanType: string;
+  scannedAt: Date;
+  location: string | null;
+  forced: boolean;
+  source: "vehicle" | "venue";
+  // Vehicle-specific fields
+  driver?: { id: string; name: string } | null;
+  vehicle?: { id: string; busNumber: string } | null;
+  shift?: { id: string; title: string } | null;
+  // Venue-specific fields
+  venue?: { id: string; name: string } | null;
+  staff?: { id: string; name: string } | null;
+};
+
 export interface IStorage {
   createRegistration(
     parentData: InsertParent,
@@ -111,6 +128,8 @@ export interface IStorage {
   getParentById(parentId: string): Promise<Parent | null>;
   
   getStudentScans(studentId: string, startDate?: Date, endDate?: Date): Promise<QRScan[]>;
+  
+  getStudentAllScans(studentId: string, startDate?: Date, endDate?: Date): Promise<CombinedScan[]>;
   
   authenticateAdmin(username: string, password: string): Promise<Admin | null>;
   
@@ -923,6 +942,91 @@ export class DbStorage implements IStorage {
     });
     
     return scans;
+  }
+
+  async getStudentAllScans(studentId: string, startDate?: Date, endDate?: Date): Promise<CombinedScan[]> {
+    let driverWhereClause;
+    let venueWhereClause;
+    
+    if (startDate && endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      driverWhereClause = and(
+        eq(qrScans.studentId, studentId),
+        gte(qrScans.scannedAt, startDate),
+        lte(qrScans.scannedAt, endOfDay)
+      );
+      venueWhereClause = and(
+        eq(venueScans.studentId, studentId),
+        gte(venueScans.scannedAt, startDate),
+        lte(venueScans.scannedAt, endOfDay)
+      );
+    } else if (startDate) {
+      driverWhereClause = and(
+        eq(qrScans.studentId, studentId),
+        gte(qrScans.scannedAt, startDate)
+      );
+      venueWhereClause = and(
+        eq(venueScans.studentId, studentId),
+        gte(venueScans.scannedAt, startDate)
+      );
+    } else {
+      driverWhereClause = eq(qrScans.studentId, studentId);
+      venueWhereClause = eq(venueScans.studentId, studentId);
+    }
+    
+    const [driverScans, venueScansData] = await Promise.all([
+      db.query.qrScans.findMany({
+        where: driverWhereClause,
+        with: {
+          driver: true,
+          vehicle: true,
+          shift: true,
+        },
+      }),
+      db.query.venueScans.findMany({
+        where: venueWhereClause,
+        with: {
+          venue: true,
+          staff: true,
+        },
+      }),
+    ]);
+    
+    const combinedScans: CombinedScan[] = [
+      ...driverScans.map(scan => ({
+        id: scan.id,
+        studentId: scan.studentId,
+        scanType: scan.scanType === "On" ? "Board" : scan.scanType === "Off" ? "Alight" : scan.scanType,
+        scannedAt: scan.scannedAt,
+        location: scan.location,
+        forced: scan.forced,
+        source: "vehicle" as const,
+        driver: scan.driver ? { id: scan.driver.id, name: scan.driver.driverName } : null,
+        vehicle: scan.vehicle ? { id: scan.vehicle.id, busNumber: scan.vehicle.busNumber } : null,
+        shift: scan.shift ? { id: scan.shift.id, title: scan.shift.shiftTitle } : null,
+        venue: null,
+        staff: null,
+      })),
+      ...venueScansData.map(scan => ({
+        id: scan.id,
+        studentId: scan.studentId,
+        scanType: scan.scanType === "In" ? "Check In" : scan.scanType === "Out" ? "Check Out" : scan.scanType,
+        scannedAt: scan.scannedAt,
+        location: scan.location,
+        forced: scan.forced,
+        source: "venue" as const,
+        driver: null,
+        vehicle: null,
+        shift: null,
+        venue: scan.venue ? { id: scan.venue.id, name: scan.venue.name } : null,
+        staff: scan.staff ? { id: scan.staff.id, name: scan.staff.name } : null,
+      })),
+    ];
+    
+    combinedScans.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime());
+    
+    return combinedScans;
   }
 
   async authenticateAdmin(username: string, password: string): Promise<Admin | null> {
