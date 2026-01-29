@@ -817,6 +817,18 @@ export default function AdminSearch() {
     }
   };
 
+  const handleSearchAll = () => {
+    if (searchQuery === "ALL") {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/parents", "ALL"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/students", "ALL"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/drivers", "ALL"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/shifts", "ALL"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles", "ALL"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/venues", "ALL"] });
+    }
+    setSearchQuery("ALL");
+  };
+
   const startEditParent = (parent: Parent) => {
     setEditingParent(parent.id);
     setParentFormData(parent);
@@ -1118,7 +1130,7 @@ export default function AdminSearch() {
                   Search
                 </Button>
                 <Button 
-                  onClick={() => setSearchQuery("ALL")} 
+                  onClick={handleSearchAll} 
                   size="sm"
                   variant="outline"
                   data-testid="button-search-all"
