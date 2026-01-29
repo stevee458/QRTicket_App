@@ -794,11 +794,14 @@ export default function AdminSearch() {
     try {
       const response = await fetch(`/api/venues/${venueId}/staff`);
       const result = await response.json();
-      if (result.success) {
-        setVenueStaffList(result.data || []);
+      if (result.success && result.data) {
+        setVenueStaffList(result.data.staff || []);
+      } else {
+        setVenueStaffList([]);
       }
     } catch (error) {
       console.error("Failed to fetch venue staff:", error);
+      setVenueStaffList([]);
     }
   };
 
