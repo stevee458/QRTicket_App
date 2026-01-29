@@ -4,8 +4,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppHeader from "@/components/AppHeader";
+import AdminAuthGuard from "@/components/AdminAuthGuard";
 import Driver from "@/pages/driver";
 import Admin from "@/pages/admin";
+import AdminLogin from "@/pages/admin-login";
 import AdminSearch from "@/pages/admin-search";
 import Parent from "@/pages/parent";
 import Registration from "@/pages/registration";
@@ -19,10 +21,27 @@ function Router() {
         <Redirect to="/admin" />
       </Route>
       <Route path="/driver" component={Driver} />
-      <Route path="/admin" component={Admin} />
-      <Route path="/admin/register" component={Registration} />
-      <Route path="/admin/register-transport" component={RegisterTransport} />
-      <Route path="/admin/search" component={AdminSearch} />
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin">
+        <AdminAuthGuard>
+          <Admin />
+        </AdminAuthGuard>
+      </Route>
+      <Route path="/admin/register">
+        <AdminAuthGuard>
+          <Registration />
+        </AdminAuthGuard>
+      </Route>
+      <Route path="/admin/register-transport">
+        <AdminAuthGuard>
+          <RegisterTransport />
+        </AdminAuthGuard>
+      </Route>
+      <Route path="/admin/search">
+        <AdminAuthGuard>
+          <AdminSearch />
+        </AdminAuthGuard>
+      </Route>
       <Route path="/parent" component={Parent} />
       <Route component={NotFound} />
     </Switch>
