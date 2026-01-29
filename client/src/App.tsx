@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AppHeader from "@/components/AppHeader";
 import AdminAuthGuard from "@/components/AdminAuthGuard";
 import Driver from "@/pages/driver";
+import Venue from "@/pages/venue";
 import Admin from "@/pages/admin";
 import AdminLogin from "@/pages/admin-login";
 import AdminSearch from "@/pages/admin-search";
@@ -21,6 +22,7 @@ function Router() {
         <Redirect to="/admin" />
       </Route>
       <Route path="/driver" component={Driver} />
+      <Route path="/venue" component={Venue} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin">
         <AdminAuthGuard>
