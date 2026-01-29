@@ -794,27 +794,58 @@ export default function VenuePage() {
 
     try {
       const results = await Promise.allSettled(
-        currentScans.map(scan => 
-          apiRequest("POST", "/api/venue-scans", {
-            venueId: currentSession.venue.id,
-            staffId: currentSession.staff.id,
-            studentId: scan.studentId,
-            scanType: scan.scanType,
-            location: scan.location,
-            locationConfirmed: scan.locationConfirmed,
-            forced: scan.forced,
-          })
-        )
+        currentScans.map(async (scan) => {
+          const response = await fetch("/api/venue-scans", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              venueId: currentSession.venue.id,
+              staffId: currentSession.staff.id,
+              studentId: scan.studentId,
+              scanType: scan.scanType,
+              location: scan.location,
+              locationConfirmed: scan.locationConfirmed,
+              forced: scan.forced,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw { status: response.status, error: data.error, message: data.message };
+          }
+          return data;
+        })
       );
 
-      const successCount = results.filter(r => r.status === "fulfilled").length;
-      const failedCount = results.filter(r => r.status === "rejected").length;
+      let successCount = 0;
+      let failedCount = 0;
+      let studentNotFoundCount = 0;
+      const failedIndices: number[] = [];
+      const studentNotFoundIndices: number[] = [];
 
-      if (successCount > 0) {
-        const failedIndices = results
-          .map((r, i) => r.status === "rejected" ? i : -1)
-          .filter(i => i !== -1);
-        
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          successCount++;
+        } else {
+          const error = result.reason;
+          if (error?.error === "STUDENT_NOT_FOUND") {
+            studentNotFoundCount++;
+            studentNotFoundIndices.push(index);
+          } else {
+            failedCount++;
+            failedIndices.push(index);
+          }
+        }
+      });
+
+      if (studentNotFoundCount > 0) {
+        toast({
+          title: "Invalid QR Codes Detected",
+          description: `${studentNotFoundCount} scan(s) used outdated QR codes for students that no longer exist. These have been removed.`,
+          variant: "destructive",
+        });
+      }
+
+      if (successCount > 0 || studentNotFoundCount > 0) {
         const failedScansFromBatch = currentScans.filter((_, i) => failedIndices.includes(i));
         
         const freshScans = localStorage.getItem("venuePendingScans");
