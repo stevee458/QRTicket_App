@@ -1151,6 +1151,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/venue-scans", async (req, res) => {
+    try {
+      const { venueId, staffId, studentId, scanType, location, locationConfirmed, forced } = req.body;
+
+      if (!venueId || !studentId || !scanType) {
+        res.status(400).json({
+          success: false,
+          error: "venueId, studentId, and scanType are required",
+        });
+        return;
+      }
+
+      const scan = await storage.createVenueScan({
+        venueId,
+        staffId,
+        studentId,
+        scanType,
+        location,
+        locationConfirmed: locationConfirmed || false,
+        forced: forced || false,
+        synced: true,
+      });
+
+      res.json({
+        success: true,
+        data: scan,
+      });
+    } catch (error) {
+      console.error("Create venue scan error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create venue scan",
+      });
+    }
+  });
+
+  app.get("/api/venue/at-venue", async (req, res) => {
+    try {
+      const venueId = (req.session as any).venueId;
+
+      if (!venueId) {
+        res.status(401).json({
+          success: false,
+          error: "Not authenticated",
+        });
+        return;
+      }
+
+      const studentsAtVenue = await storage.getStudentsAtVenue(venueId);
+
+      res.json({
+        success: true,
+        data: studentsAtVenue,
+      });
+    } catch (error) {
+      console.error("Get students at venue error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get students at venue",
+      });
+    }
+  });
+
+  app.get("/api/students/:id/venue-status", async (req, res) => {
+    try {
+      const venueStatus = await storage.getStudentVenueStatus(req.params.id);
+
+      res.json({
+        success: true,
+        data: venueStatus,
+      });
+    } catch (error) {
+      console.error("Get student venue status error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get student venue status",
+      });
+    }
+  });
+
   app.post("/api/driver/login", async (req, res) => {
     try {
       const { driverName, companyNumber } = req.body;

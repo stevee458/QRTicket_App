@@ -145,6 +145,14 @@ export interface IStorage {
   createVenueScan(data: InsertVenueScan): Promise<VenueScan>;
   
   getVenueScans(venueId: string, startDate?: Date, endDate?: Date): Promise<VenueScan[]>;
+  
+  getStudentsAtVenue(venueId: string): Promise<Array<{ student: Student; scanTime: Date }>>;
+  
+  getStudentVenueStatus(studentId: string): Promise<{
+    isAtVenue: boolean;
+    venueName: string | null;
+    scanTime: Date | null;
+  } | null>;
 }
 
 export class DbStorage implements IStorage {
@@ -1091,6 +1099,77 @@ export class DbStorage implements IStorage {
     });
     
     return scans;
+  }
+
+  async getStudentsAtVenue(venueId: string): Promise<Array<{ student: Student; scanTime: Date }>> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayScans = await db.query.venueScans.findMany({
+      where: and(
+        eq(venueScans.venueId, venueId),
+        gte(venueScans.scannedAt, today)
+      ),
+      with: {
+        student: true,
+      },
+      orderBy: [desc(venueScans.scannedAt)],
+    });
+
+    const studentLatestScans = new Map<string, { student: Student; scanTime: Date; scanType: string }>();
+    
+    for (const scan of todayScans) {
+      if (!studentLatestScans.has(scan.studentId)) {
+        studentLatestScans.set(scan.studentId, {
+          student: scan.student,
+          scanTime: scan.scannedAt,
+          scanType: scan.scanType,
+        });
+      }
+    }
+
+    const studentsAtVenue: Array<{ student: Student; scanTime: Date }> = [];
+    
+    for (const [, data] of studentLatestScans) {
+      if (data.scanType === "In") {
+        studentsAtVenue.push({
+          student: data.student,
+          scanTime: data.scanTime,
+        });
+      }
+    }
+
+    return studentsAtVenue;
+  }
+
+  async getStudentVenueStatus(studentId: string): Promise<{
+    isAtVenue: boolean;
+    venueName: string | null;
+    scanTime: Date | null;
+  } | null> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const latestScan = await db.query.venueScans.findFirst({
+      where: and(
+        eq(venueScans.studentId, studentId),
+        gte(venueScans.scannedAt, today)
+      ),
+      with: {
+        venue: true,
+      },
+      orderBy: [desc(venueScans.scannedAt)],
+    });
+
+    if (!latestScan) {
+      return null;
+    }
+
+    return {
+      isAtVenue: latestScan.scanType === "In",
+      venueName: latestScan.venue?.name || null,
+      scanTime: latestScan.scannedAt,
+    };
   }
 }
 
