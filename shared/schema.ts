@@ -95,6 +95,38 @@ export const admins = pgTable("admins", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const venues = pgTable("venues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  locationDescription: text("location_description"),
+  locationLat: text("location_lat"),
+  locationLng: text("location_lng"),
+  contactDetails: text("contact_details"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const venueStaff = pgTable("venue_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  venueId: varchar("venue_id").notNull().references(() => venues.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const venueScans = pgTable("venue_scans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  venueId: varchar("venue_id").notNull().references(() => venues.id, { onDelete: 'cascade' }),
+  staffId: varchar("staff_id").references(() => venueStaff.id, { onDelete: 'set null' }),
+  studentId: varchar("student_id").notNull().references(() => students.id, { onDelete: 'cascade' }),
+  scanType: text("scan_type").notNull(),
+  location: text("location"),
+  locationConfirmed: boolean("location_confirmed").notNull().default(false),
+  forced: boolean("forced").notNull().default(false),
+  synced: boolean("synced").notNull().default(true),
+  scannedAt: timestamp("scanned_at").defaultNow().notNull(),
+});
+
 export const parentsRelations = relations(parents, ({ many }) => ({
   students: many(students),
 }));
@@ -154,6 +186,34 @@ export const driversRelations = relations(drivers, ({ many }) => ({
   scans: many(qrScans),
 }));
 
+export const venuesRelations = relations(venues, ({ many }) => ({
+  staff: many(venueStaff),
+  scans: many(venueScans),
+}));
+
+export const venueStaffRelations = relations(venueStaff, ({ one, many }) => ({
+  venue: one(venues, {
+    fields: [venueStaff.venueId],
+    references: [venues.id],
+  }),
+  scans: many(venueScans),
+}));
+
+export const venueScansRelations = relations(venueScans, ({ one }) => ({
+  venue: one(venues, {
+    fields: [venueScans.venueId],
+    references: [venues.id],
+  }),
+  staff: one(venueStaff, {
+    fields: [venueScans.staffId],
+    references: [venueStaff.id],
+  }),
+  student: one(students, {
+    fields: [venueScans.studentId],
+    references: [students.id],
+  }),
+}));
+
 export const insertParentSchema = createInsertSchema(parents).omit({
   id: true,
   createdAt: true,
@@ -200,6 +260,21 @@ export const insertAdminSchema = createInsertSchema(admins).omit({
   createdAt: true,
 });
 
+export const insertVenueSchema = createInsertSchema(venues).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVenueStaffSchema = createInsertSchema(venueStaff).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVenueScanSchema = createInsertSchema(venueScans).omit({
+  id: true,
+  scannedAt: true,
+});
+
 export type InsertParent = z.infer<typeof insertParentSchema>;
 export type Parent = typeof parents.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -218,3 +293,9 @@ export type InsertDriver = z.infer<typeof insertDriverSchema>;
 export type Driver = typeof drivers.$inferSelect;
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Admin = typeof admins.$inferSelect;
+export type InsertVenue = z.infer<typeof insertVenueSchema>;
+export type Venue = typeof venues.$inferSelect;
+export type InsertVenueStaff = z.infer<typeof insertVenueStaffSchema>;
+export type VenueStaff = typeof venueStaff.$inferSelect;
+export type InsertVenueScan = z.infer<typeof insertVenueScanSchema>;
+export type VenueScan = typeof venueScans.$inferSelect;
