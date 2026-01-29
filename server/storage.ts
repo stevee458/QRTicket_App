@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver } from "@shared/schema";
+import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin } from "@shared/schema";
 import { eq, ilike, desc, and, gte, lte } from "drizzle-orm";
 
 export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
@@ -100,6 +100,14 @@ export interface IStorage {
   getParentById(parentId: string): Promise<Parent | null>;
   
   getStudentScans(studentId: string, startDate?: Date, endDate?: Date): Promise<QRScan[]>;
+  
+  authenticateAdmin(username: string, password: string): Promise<Admin | null>;
+  
+  getAdminById(adminId: string): Promise<Admin | null>;
+  
+  createAdmin(data: InsertAdmin): Promise<Admin>;
+  
+  seedSuperAdmin(): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -833,6 +841,42 @@ export class DbStorage implements IStorage {
     });
     
     return scans;
+  }
+
+  async authenticateAdmin(username: string, password: string): Promise<Admin | null> {
+    const admin = await db.query.admins.findFirst({
+      where: and(
+        eq(admins.username, username),
+        eq(admins.password, password)
+      ),
+    });
+    return admin || null;
+  }
+
+  async getAdminById(adminId: string): Promise<Admin | null> {
+    const admin = await db.query.admins.findFirst({
+      where: eq(admins.id, adminId),
+    });
+    return admin || null;
+  }
+
+  async createAdmin(data: InsertAdmin): Promise<Admin> {
+    const [admin] = await db.insert(admins).values(data).returning();
+    return admin;
+  }
+
+  async seedSuperAdmin(): Promise<void> {
+    const existing = await db.query.admins.findFirst({
+      where: eq(admins.username, "Admin"),
+    });
+    
+    if (!existing) {
+      await db.insert(admins).values({
+        username: "Admin",
+        password: "Jarvie",
+      });
+      console.log("Super admin user created: Admin / Jarvie");
+    }
   }
 }
 

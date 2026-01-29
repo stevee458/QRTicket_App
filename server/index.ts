@@ -8,6 +8,7 @@ const app = express();
 declare module "express-session" {
   interface SessionData {
     parentId?: string;
+    adminId?: string;
   }
 }
 

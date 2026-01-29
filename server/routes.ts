@@ -1067,6 +1067,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Authentication Routes
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        res.status(400).json({
+          success: false,
+          error: "Username and password are required",
+        });
+        return;
+      }
+
+      const admin = await storage.authenticateAdmin(username, password);
+
+      if (!admin) {
+        res.status(401).json({
+          success: false,
+          error: "Invalid username or password",
+        });
+        return;
+      }
+
+      req.session.adminId = admin.id;
+
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          res.status(500).json({
+            success: false,
+            error: "Failed to save session",
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          data: {
+            id: admin.id,
+            username: admin.username,
+          },
+        });
+      });
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Login failed",
+      });
+    }
+  });
+
+  app.post("/api/admin/logout", async (req, res) => {
+    try {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+          res.status(500).json({
+            success: false,
+            error: "Failed to logout",
+          });
+          return;
+        }
+
+        res.clearCookie("connect.sid");
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Admin logout error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Logout failed",
+      });
+    }
+  });
+
+  app.get("/api/admin/me", async (req, res) => {
+    try {
+      const adminId = req.session.adminId;
+
+      if (!adminId) {
+        res.status(401).json({
+          success: false,
+          error: "Not authenticated",
+        });
+        return;
+      }
+
+      const admin = await storage.getAdminById(adminId);
+
+      if (!admin) {
+        res.status(401).json({
+          success: false,
+          error: "Admin not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: admin.id,
+          username: admin.username,
+        },
+      });
+    } catch (error) {
+      console.error("Fetch admin error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch admin data",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
