@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, vehicleDocuments, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin, type InsertVehicleDocument, type VehicleDocument } from "@shared/schema";
+import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, vehicleDocuments, venues, venueStaff, venueScans, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin, type InsertVehicleDocument, type VehicleDocument, type InsertVenue, type Venue, type InsertVenueStaff, type VenueStaff, type InsertVenueScan, type VenueScan } from "@shared/schema";
 import { eq, ilike, desc, and, gte, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -119,6 +119,32 @@ export interface IStorage {
   createAdmin(data: InsertAdmin): Promise<Admin>;
   
   seedSuperAdmin(): Promise<void>;
+  
+  createVenue(data: InsertVenue): Promise<Venue>;
+  
+  getAllVenues(): Promise<Venue[]>;
+  
+  getVenueById(venueId: string): Promise<Venue | null>;
+  
+  getVenueWithStaff(venueId: string): Promise<{ venue: Venue; staff: VenueStaff[] } | null>;
+  
+  updateVenue(venueId: string, data: Partial<InsertVenue>): Promise<Venue>;
+  
+  deleteVenue(venueId: string): Promise<void>;
+  
+  createVenueStaff(data: InsertVenueStaff): Promise<VenueStaff>;
+  
+  updateVenueStaff(staffId: string, data: Partial<InsertVenueStaff>): Promise<VenueStaff>;
+  
+  deleteVenueStaff(staffId: string): Promise<void>;
+  
+  authenticateVenueStaff(name: string, password: string): Promise<{ staff: VenueStaff; venue: Venue } | null>;
+  
+  getVenueStaffById(staffId: string): Promise<VenueStaff | null>;
+  
+  createVenueScan(data: InsertVenueScan): Promise<VenueScan>;
+  
+  getVenueScans(venueId: string, startDate?: Date, endDate?: Date): Promise<VenueScan[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -930,6 +956,141 @@ export class DbStorage implements IStorage {
       });
       console.log("Super admin user created: Admin / Jarvie");
     }
+  }
+
+  async createVenue(data: InsertVenue): Promise<Venue> {
+    const [venue] = await db.insert(venues).values(data).returning();
+    return venue;
+  }
+
+  async getAllVenues(): Promise<Venue[]> {
+    const allVenues = await db.query.venues.findMany();
+    return allVenues;
+  }
+
+  async getVenueById(venueId: string): Promise<Venue | null> {
+    const venue = await db.query.venues.findFirst({
+      where: eq(venues.id, venueId),
+    });
+    return venue || null;
+  }
+
+  async getVenueWithStaff(venueId: string): Promise<{ venue: Venue; staff: VenueStaff[] } | null> {
+    const venue = await db.query.venues.findFirst({
+      where: eq(venues.id, venueId),
+      with: {
+        staff: true,
+      },
+    });
+    if (!venue) return null;
+    return {
+      venue,
+      staff: venue.staff || [],
+    };
+  }
+
+  async updateVenue(venueId: string, data: Partial<InsertVenue>): Promise<Venue> {
+    const [updated] = await db
+      .update(venues)
+      .set(data)
+      .where(eq(venues.id, venueId))
+      .returning();
+    return updated;
+  }
+
+  async deleteVenue(venueId: string): Promise<void> {
+    await db.delete(venues).where(eq(venues.id, venueId));
+  }
+
+  async createVenueStaff(data: InsertVenueStaff): Promise<VenueStaff> {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const [staff] = await db.insert(venueStaff).values({
+      ...data,
+      password: hashedPassword,
+    }).returning();
+    return staff;
+  }
+
+  async updateVenueStaff(staffId: string, data: Partial<InsertVenueStaff>): Promise<VenueStaff> {
+    const updateData = { ...data };
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
+    }
+    const [updated] = await db
+      .update(venueStaff)
+      .set(updateData)
+      .where(eq(venueStaff.id, staffId))
+      .returning();
+    return updated;
+  }
+
+  async deleteVenueStaff(staffId: string): Promise<void> {
+    await db.delete(venueStaff).where(eq(venueStaff.id, staffId));
+  }
+
+  async authenticateVenueStaff(name: string, password: string): Promise<{ staff: VenueStaff; venue: Venue } | null> {
+    const staff = await db.query.venueStaff.findFirst({
+      where: ilike(venueStaff.name, name),
+      with: {
+        venue: true,
+      },
+    });
+    if (!staff) return null;
+    
+    const isValid = await bcrypt.compare(password, staff.password);
+    if (!isValid) return null;
+    
+    return {
+      staff,
+      venue: staff.venue,
+    };
+  }
+
+  async getVenueStaffById(staffId: string): Promise<VenueStaff | null> {
+    const staff = await db.query.venueStaff.findFirst({
+      where: eq(venueStaff.id, staffId),
+      with: {
+        venue: true,
+      },
+    });
+    return staff || null;
+  }
+
+  async createVenueScan(data: InsertVenueScan): Promise<VenueScan> {
+    const [scan] = await db.insert(venueScans).values(data).returning();
+    return scan;
+  }
+
+  async getVenueScans(venueId: string, startDate?: Date, endDate?: Date): Promise<VenueScan[]> {
+    let whereClause;
+    
+    if (startDate && endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      whereClause = and(
+        eq(venueScans.venueId, venueId),
+        gte(venueScans.scannedAt, startDate),
+        lte(venueScans.scannedAt, endOfDay)
+      );
+    } else if (startDate) {
+      whereClause = and(
+        eq(venueScans.venueId, venueId),
+        gte(venueScans.scannedAt, startDate)
+      );
+    } else {
+      whereClause = eq(venueScans.venueId, venueId);
+    }
+    
+    const scans = await db.query.venueScans.findMany({
+      where: whereClause,
+      with: {
+        staff: true,
+        student: true,
+      },
+      orderBy: [desc(venueScans.scannedAt)],
+    });
+    
+    return scans;
   }
 }
 

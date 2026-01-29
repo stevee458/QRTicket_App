@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertParentSchema, insertStudentSchema, insertQRScanSchema, insertVehicleSchema, insertShiftSchema, insertDriverSchema, insertVehicleDocumentSchema } from "@shared/schema";
+import { insertParentSchema, insertStudentSchema, insertQRScanSchema, insertVehicleSchema, insertShiftSchema, insertDriverSchema, insertVehicleDocumentSchema, insertVenueSchema, insertVenueStaffSchema, insertVenueScanSchema } from "@shared/schema";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import QRCode from "qrcode";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -810,6 +811,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to delete driver",
+      });
+    }
+  });
+
+  app.post("/api/venues", async (req, res) => {
+    try {
+      const venueData = insertVenueSchema.parse(req.body);
+      const venue = await storage.createVenue(venueData);
+
+      res.json({
+        success: true,
+        data: venue,
+      });
+    } catch (error) {
+      console.error("Create venue error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to create venue",
+        });
+      }
+    }
+  });
+
+  app.get("/api/venues", async (req, res) => {
+    try {
+      const venues = await storage.getAllVenues();
+      
+      res.json({
+        success: true,
+        data: venues,
+      });
+    } catch (error) {
+      console.error("Get venues error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch venues",
+      });
+    }
+  });
+
+  app.get("/api/venues/:id", async (req, res) => {
+    try {
+      const venue = await storage.getVenueById(req.params.id);
+      
+      if (!venue) {
+        res.status(404).json({
+          success: false,
+          error: "Venue not found",
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        data: venue,
+      });
+    } catch (error) {
+      console.error("Get venue error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch venue",
+      });
+    }
+  });
+
+  app.get("/api/venues/:id/staff", async (req, res) => {
+    try {
+      const result = await storage.getVenueWithStaff(req.params.id);
+      
+      if (!result) {
+        res.status(404).json({
+          success: false,
+          error: "Venue not found",
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Get venue with staff error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch venue with staff",
+      });
+    }
+  });
+
+  app.put("/api/venues/:id", async (req, res) => {
+    try {
+      const updateData = insertVenueSchema.partial().parse(req.body);
+      const updated = await storage.updateVenue(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update venue error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update venue",
+        });
+      }
+    }
+  });
+
+  app.delete("/api/venues/:id", async (req, res) => {
+    try {
+      await storage.deleteVenue(req.params.id);
+      
+      res.json({
+        success: true,
+        message: "Venue deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete venue error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete venue",
+      });
+    }
+  });
+
+  app.post("/api/venues/:venueId/staff", async (req, res) => {
+    try {
+      const staffData = insertVenueStaffSchema.parse({
+        venueId: req.params.venueId,
+        ...req.body,
+      });
+      const staff = await storage.createVenueStaff(staffData);
+      
+      res.json({
+        success: true,
+        data: staff,
+      });
+    } catch (error) {
+      console.error("Create venue staff error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to create venue staff",
+        });
+      }
+    }
+  });
+
+  app.put("/api/venue-staff/:id", async (req, res) => {
+    try {
+      const updateData = insertVenueStaffSchema.partial().parse(req.body);
+      const updated = await storage.updateVenueStaff(req.params.id, updateData);
+      
+      res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Update venue staff error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to update venue staff",
+        });
+      }
+    }
+  });
+
+  app.delete("/api/venue-staff/:id", async (req, res) => {
+    try {
+      await storage.deleteVenueStaff(req.params.id);
+      
+      res.json({
+        success: true,
+        message: "Venue staff deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete venue staff error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete venue staff",
+      });
+    }
+  });
+
+  app.post("/api/venue/login", async (req, res) => {
+    try {
+      const { name, password } = req.body;
+
+      if (!name || !password) {
+        res.status(400).json({
+          success: false,
+          error: "Name and password are required",
+        });
+        return;
+      }
+
+      const result = await storage.authenticateVenueStaff(name, password);
+
+      if (!result) {
+        res.status(401).json({
+          success: false,
+          error: "Invalid credentials",
+        });
+        return;
+      }
+
+      (req.session as any).staffId = result.staff.id;
+      (req.session as any).venueId = result.venue.id;
+
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          res.status(500).json({
+            success: false,
+            error: "Failed to save session",
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          data: {
+            staff: {
+              id: result.staff.id,
+              name: result.staff.name,
+            },
+            venue: {
+              id: result.venue.id,
+              name: result.venue.name,
+            },
+          },
+        });
+      });
+    } catch (error) {
+      console.error("Venue login error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Login failed",
+      });
+    }
+  });
+
+  app.post("/api/venue/logout", async (req, res) => {
+    try {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+          res.status(500).json({
+            success: false,
+            error: "Failed to logout",
+          });
+          return;
+        }
+
+        res.clearCookie("connect.sid");
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Venue logout error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to logout",
+      });
+    }
+  });
+
+  app.get("/api/venue/session", async (req, res) => {
+    try {
+      const staffId = (req.session as any).staffId;
+      const venueId = (req.session as any).venueId;
+      
+      if (!staffId || !venueId) {
+        res.status(401).json({
+          success: false,
+          error: "Not authenticated",
+        });
+        return;
+      }
+
+      const staff = await storage.getVenueStaffById(staffId);
+      const venue = await storage.getVenueById(venueId);
+
+      if (!staff || !venue) {
+        res.status(401).json({
+          success: false,
+          error: "Session invalid",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          staff: {
+            id: staff.id,
+            name: staff.name,
+          },
+          venue: {
+            id: venue.id,
+            name: venue.name,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Get venue session error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get session",
       });
     }
   });
