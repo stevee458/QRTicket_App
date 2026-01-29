@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin } from "@shared/schema";
 import { eq, ilike, desc, and, gte, lte } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
 
@@ -845,12 +846,12 @@ export class DbStorage implements IStorage {
 
   async authenticateAdmin(username: string, password: string): Promise<Admin | null> {
     const admin = await db.query.admins.findFirst({
-      where: and(
-        eq(admins.username, username),
-        eq(admins.password, password)
-      ),
+      where: eq(admins.username, username),
     });
-    return admin || null;
+    if (!admin) return null;
+    
+    const isValid = await bcrypt.compare(password, admin.password);
+    return isValid ? admin : null;
   }
 
   async getAdminById(adminId: string): Promise<Admin | null> {
@@ -861,7 +862,11 @@ export class DbStorage implements IStorage {
   }
 
   async createAdmin(data: InsertAdmin): Promise<Admin> {
-    const [admin] = await db.insert(admins).values(data).returning();
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const [admin] = await db.insert(admins).values({
+      ...data,
+      password: hashedPassword,
+    }).returning();
     return admin;
   }
 
@@ -871,9 +876,10 @@ export class DbStorage implements IStorage {
     });
     
     if (!existing) {
+      const hashedPassword = await bcrypt.hash("Jarvie", 10);
       await db.insert(admins).values({
         username: "Admin",
-        password: "Jarvie",
+        password: hashedPassword,
       });
       console.log("Super admin user created: Admin / Jarvie");
     }

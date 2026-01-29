@@ -22,7 +22,6 @@ export default function AdminLogin() {
     },
     onSuccess: (response) => {
       if (response.success) {
-        queryClient.setQueryData(["/api/admin/session"], response);
         queryClient.invalidateQueries({ queryKey: ["/api/admin/me"] });
         toast({
           title: "Login successful",

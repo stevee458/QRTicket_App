@@ -1181,6 +1181,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  await storage.seedSuperAdmin();
+
   const httpServer = createServer(app);
   return httpServer;
 }
