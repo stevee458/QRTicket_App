@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertParentSchema, insertStudentSchema, insertQRScanSchema, insertVehicleSchema, insertShiftSchema, insertDriverSchema } from "@shared/schema";
+import { insertParentSchema, insertStudentSchema, insertQRScanSchema, insertVehicleSchema, insertShiftSchema, insertDriverSchema, insertVehicleDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 import QRCode from "qrcode";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 const registrationSchema = z.object({
   parentName: z.string().min(1),
@@ -517,6 +518,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to delete vehicle",
+      });
+    }
+  });
+
+  app.get("/api/vehicles/:id", async (req, res) => {
+    try {
+      const result = await storage.getVehicleWithDocuments(req.params.id);
+      
+      if (!result) {
+        res.status(404).json({
+          success: false,
+          error: "Vehicle not found",
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Get vehicle error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get vehicle",
+      });
+    }
+  });
+
+  app.post("/api/vehicles/:id/documents", async (req, res) => {
+    try {
+      const documentData = insertVehicleDocumentSchema.parse({
+        vehicleId: req.params.id,
+        ...req.body,
+      });
+      const document = await storage.createVehicleDocument(documentData);
+      
+      res.json({
+        success: true,
+        data: document,
+      });
+    } catch (error) {
+      console.error("Create vehicle document error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Failed to create vehicle document",
+        });
+      }
+    }
+  });
+
+  app.delete("/api/vehicles/:vehicleId/documents/:documentId", async (req, res) => {
+    try {
+      await storage.deleteVehicleDocument(req.params.documentId);
+      
+      res.json({
+        success: true,
+        message: "Document deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete vehicle document error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to delete document",
+      });
+    }
+  });
+
+  app.get("/api/drivers/:id", async (req, res) => {
+    try {
+      const driver = await storage.getDriverById(req.params.id);
+      
+      if (!driver) {
+        res.status(404).json({
+          success: false,
+          error: "Driver not found",
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        data: driver,
+      });
+    } catch (error) {
+      console.error("Get driver error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get driver",
       });
     }
   });
@@ -1182,6 +1279,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   await storage.seedSuperAdmin();
+
+  registerObjectStorageRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

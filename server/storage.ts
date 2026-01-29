@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin } from "@shared/schema";
+import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, vehicleDocuments, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin, type InsertVehicleDocument, type VehicleDocument } from "@shared/schema";
 import { eq, ilike, desc, and, gte, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -61,6 +61,16 @@ export interface IStorage {
   updateVehicle(vehicleId: string, data: Partial<InsertVehicle>): Promise<Vehicle>;
   
   deleteVehicle(vehicleId: string): Promise<void>;
+
+  getVehicleById(vehicleId: string): Promise<Vehicle | null>;
+
+  getVehicleWithDocuments(vehicleId: string): Promise<{ vehicle: Vehicle; documents: VehicleDocument[] } | null>;
+  
+  createVehicleDocument(data: InsertVehicleDocument): Promise<VehicleDocument>;
+  
+  deleteVehicleDocument(documentId: string): Promise<void>;
+
+  getDriverById(driverId: string): Promise<Driver | null>;
   
   createShift(data: InsertShift): Promise<Shift>;
   
@@ -570,6 +580,43 @@ export class DbStorage implements IStorage {
 
   async deleteVehicle(vehicleId: string): Promise<void> {
     await db.delete(vehicles).where(eq(vehicles.id, vehicleId));
+  }
+
+  async getVehicleById(vehicleId: string): Promise<Vehicle | null> {
+    const vehicle = await db.query.vehicles.findFirst({
+      where: eq(vehicles.id, vehicleId),
+    });
+    return vehicle || null;
+  }
+
+  async getVehicleWithDocuments(vehicleId: string): Promise<{ vehicle: Vehicle; documents: VehicleDocument[] } | null> {
+    const vehicle = await db.query.vehicles.findFirst({
+      where: eq(vehicles.id, vehicleId),
+      with: {
+        documents: true,
+      },
+    });
+    if (!vehicle) return null;
+    return {
+      vehicle,
+      documents: vehicle.documents || [],
+    };
+  }
+
+  async createVehicleDocument(data: InsertVehicleDocument): Promise<VehicleDocument> {
+    const [document] = await db.insert(vehicleDocuments).values(data).returning();
+    return document;
+  }
+
+  async deleteVehicleDocument(documentId: string): Promise<void> {
+    await db.delete(vehicleDocuments).where(eq(vehicleDocuments.id, documentId));
+  }
+
+  async getDriverById(driverId: string): Promise<Driver | null> {
+    const driver = await db.query.drivers.findFirst({
+      where: eq(drivers.id, driverId),
+    });
+    return driver || null;
   }
 
   async createShift(data: InsertShift): Promise<Shift> {
