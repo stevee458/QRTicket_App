@@ -625,10 +625,19 @@ export default function AdminSearch() {
       await apiRequest("DELETE", "/api/uploads/delete", { objectPath });
       const endpoint = entityType === "vehicle" ? `/api/vehicles/${entityId}` : `/api/drivers/${entityId}`;
       await apiRequest("PUT", endpoint, { [field]: null });
+      return { entityType, field };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/search/drivers"] });
+      
+      // Update local form state to immediately reflect deletion
+      if (result.entityType === "vehicle") {
+        setVehicleFormData(prev => ({ ...prev, [result.field]: null }));
+      } else {
+        setDriverFormData(prev => ({ ...prev, [result.field]: null }));
+      }
+      
       setShowDeleteImageDialog(false);
       setImageToDelete(null);
       toast({
