@@ -144,33 +144,66 @@ export default function RegisterTransport() {
 
               <TabsContent value="vehicle" className="space-y-4">
                 <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="bus-number">Bus Number</Label>
-                    <Input
-                      id="bus-number"
-                      value={vehicleFormData.busNumber || ""}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, busNumber: e.target.value })}
-                      data-testid="input-bus-number"
-                    />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <Label htmlFor="bus-number">Bus Number *</Label>
+                      <Input
+                        id="bus-number"
+                        value={vehicleFormData.busNumber || ""}
+                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, busNumber: e.target.value })}
+                        data-testid="input-bus-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="registration-number">Registration Number *</Label>
+                      <Input
+                        id="registration-number"
+                        value={vehicleFormData.registrationNumber || ""}
+                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, registrationNumber: e.target.value })}
+                        data-testid="input-registration-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="depot-name">Depot Name *</Label>
+                      <Input
+                        id="depot-name"
+                        value={vehicleFormData.depotName || ""}
+                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, depotName: e.target.value })}
+                        data-testid="input-depot-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="vehicle-make">Make</Label>
+                      <Input
+                        id="vehicle-make"
+                        value={vehicleFormData.make || ""}
+                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, make: e.target.value })}
+                        data-testid="input-vehicle-make"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="vehicle-model">Model</Label>
+                      <Input
+                        id="vehicle-model"
+                        value={vehicleFormData.model || ""}
+                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, model: e.target.value })}
+                        data-testid="input-vehicle-model"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="license-expiry">License Expiry Date</Label>
+                      <Input
+                        id="license-expiry"
+                        type="date"
+                        value={vehicleFormData.licenseExpiryDate || ""}
+                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, licenseExpiryDate: e.target.value })}
+                        data-testid="input-license-expiry"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="registration-number">Registration Number</Label>
-                    <Input
-                      id="registration-number"
-                      value={vehicleFormData.registrationNumber || ""}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, registrationNumber: e.target.value })}
-                      data-testid="input-registration-number"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="depot-name">Depot Name</Label>
-                    <Input
-                      id="depot-name"
-                      value={vehicleFormData.depotName || ""}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, depotName: e.target.value })}
-                      data-testid="input-depot-name"
-                    />
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    * Required fields. You can add license disk images and documents after creating the vehicle via Search & Edit.
+                  </p>
                   <Button 
                     onClick={handleCreateVehicle} 
                     disabled={createVehicleMutation.isPending}
@@ -224,24 +257,47 @@ export default function RegisterTransport() {
 
               <TabsContent value="driver" className="space-y-4">
                 <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="company-number">Company Number</Label>
-                    <Input
-                      id="company-number"
-                      value={driverFormData.companyNumber || ""}
-                      onChange={(e) => setDriverFormData({ ...driverFormData, companyNumber: e.target.value })}
-                      data-testid="input-company-number"
-                    />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <Label htmlFor="company-number">Company Number *</Label>
+                      <Input
+                        id="company-number"
+                        value={driverFormData.companyNumber || ""}
+                        onChange={(e) => setDriverFormData({ ...driverFormData, companyNumber: e.target.value })}
+                        data-testid="input-company-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="driver-name">Driver Name *</Label>
+                      <Input
+                        id="driver-name"
+                        value={driverFormData.driverName || ""}
+                        onChange={(e) => setDriverFormData({ ...driverFormData, driverName: e.target.value })}
+                        data-testid="input-driver-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="driver-id-number">ID Number</Label>
+                      <Input
+                        id="driver-id-number"
+                        value={driverFormData.idNumber || ""}
+                        onChange={(e) => setDriverFormData({ ...driverFormData, idNumber: e.target.value })}
+                        data-testid="input-driver-id-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="driver-contact">Contact Number</Label>
+                      <Input
+                        id="driver-contact"
+                        value={driverFormData.contactNumber || ""}
+                        onChange={(e) => setDriverFormData({ ...driverFormData, contactNumber: e.target.value })}
+                        data-testid="input-driver-contact"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="driver-name">Driver Name</Label>
-                    <Input
-                      id="driver-name"
-                      value={driverFormData.driverName || ""}
-                      onChange={(e) => setDriverFormData({ ...driverFormData, driverName: e.target.value })}
-                      data-testid="input-driver-name"
-                    />
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    * Required fields. You can add ID copy, driver's license, and PDP images after creating the driver via Search & Edit.
+                  </p>
                   <Button 
                     onClick={handleCreateDriver} 
                     disabled={createDriverMutation.isPending}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Edit2, Save, X, Loader2, AlertCircle, RefreshCw, Download, Copy, Trash2 } from "lucide-react";
+import { Search, Edit2, Save, X, Loader2, AlertCircle, RefreshCw, Download, Copy, Trash2, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { StudentStatusIndicator } from "@/components/StudentStatusIndicator";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 interface Parent {
   id: string;
@@ -66,11 +67,22 @@ interface StudentResult {
   parent: Parent;
 }
 
+interface VehicleDocument {
+  id: string;
+  vehicleId: string;
+  documentImage: string;
+  description: string;
+}
+
 interface Vehicle {
   id: string;
   busNumber: string;
   registrationNumber: string;
   depotName: string;
+  make?: string | null;
+  model?: string | null;
+  licenseDiskImage?: string | null;
+  licenseExpiryDate?: string | null;
 }
 
 interface Shift {
@@ -84,6 +96,169 @@ interface Driver {
   id: string;
   companyNumber: string;
   driverName: string;
+  idNumber?: string | null;
+  contactNumber?: string | null;
+  idCopyImage?: string | null;
+  driversLicenseImage?: string | null;
+  pdpImage?: string | null;
+}
+
+function VehicleImageUpload({ 
+  vehicleId, 
+  field, 
+  onUploadComplete 
+}: { 
+  vehicleId: string; 
+  field: string;
+  onUploadComplete: (url: string) => void;
+}) {
+  const { toast } = useToast();
+  const objectPathMapRef = useRef<Map<string, string>>(new Map());
+
+  const customGetUploadParameters = async (file: { id?: string; name?: string | null; size?: number | null; type?: string | null }) => {
+    const response = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name || "upload",
+        size: file.size || 0,
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to get upload URL");
+    const data = await response.json();
+    if (file.id) {
+      objectPathMapRef.current.set(file.id, data.objectPath);
+    }
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    };
+  };
+
+  return (
+    <ObjectUploader
+      maxNumberOfFiles={1}
+      onGetUploadParameters={customGetUploadParameters}
+      onComplete={async (result) => {
+        const successfulFile = result.successful?.[0];
+        if (successfulFile) {
+          const objectPath = objectPathMapRef.current.get(successfulFile.id);
+          if (!objectPath) {
+            toast({
+              title: "Error",
+              description: "Upload failed - missing file path",
+              variant: "destructive",
+            });
+            return;
+          }
+          try {
+            await apiRequest("PUT", `/api/vehicles/${vehicleId}`, {
+              [field]: objectPath,
+            });
+            
+            onUploadComplete(objectPath);
+            queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles"] });
+            objectPathMapRef.current.delete(successfulFile.id);
+            toast({
+              title: "Success",
+              description: "Image uploaded successfully",
+            });
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: "Failed to save image",
+              variant: "destructive",
+            });
+          }
+        }
+      }}
+    >
+      <Upload className="w-4 h-4 mr-2" />
+      Upload Image
+    </ObjectUploader>
+  );
+}
+
+function DriverImageUpload({ 
+  driverId, 
+  field,
+  label,
+  onUploadComplete 
+}: { 
+  driverId: string; 
+  field: string;
+  label: string;
+  onUploadComplete: (url: string) => void;
+}) {
+  const { toast } = useToast();
+  const objectPathMapRef = useRef<Map<string, string>>(new Map());
+
+  const customGetUploadParameters = async (file: { id?: string; name?: string | null; size?: number | null; type?: string | null }) => {
+    const response = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name || "upload",
+        size: file.size || 0,
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to get upload URL");
+    const data = await response.json();
+    if (file.id) {
+      objectPathMapRef.current.set(file.id, data.objectPath);
+    }
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    };
+  };
+
+  return (
+    <ObjectUploader
+      maxNumberOfFiles={1}
+      onGetUploadParameters={customGetUploadParameters}
+      onComplete={async (result) => {
+        const successfulFile = result.successful?.[0];
+        if (successfulFile) {
+          const objectPath = objectPathMapRef.current.get(successfulFile.id);
+          if (!objectPath) {
+            toast({
+              title: "Error",
+              description: "Upload failed - missing file path",
+              variant: "destructive",
+            });
+            return;
+          }
+          try {
+            await apiRequest("PUT", `/api/drivers/${driverId}`, {
+              [field]: objectPath,
+            });
+            
+            onUploadComplete(objectPath);
+            queryClient.invalidateQueries({ queryKey: ["/api/search/drivers"] });
+            objectPathMapRef.current.delete(successfulFile.id);
+            toast({
+              title: "Success",
+              description: `${label} uploaded successfully`,
+            });
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: `Failed to save ${label.toLowerCase()}`,
+              variant: "destructive",
+            });
+          }
+        }
+      }}
+    >
+      <Upload className="w-4 h-4 mr-2" />
+      Upload {label}
+    </ObjectUploader>
+  );
 }
 
 export default function AdminSearch() {
@@ -1470,6 +1645,80 @@ export default function AdminSearch() {
                               data-testid="input-driver-name"
                             />
                           </div>
+                          <div>
+                            <Label htmlFor="driver-id-number">ID Number</Label>
+                            <Input
+                              id="driver-id-number"
+                              value={driverFormData.idNumber || ""}
+                              onChange={(e) => setDriverFormData({ ...driverFormData, idNumber: e.target.value })}
+                              data-testid="input-driver-id-number"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="driver-contact">Contact Number</Label>
+                            <Input
+                              id="driver-contact"
+                              value={driverFormData.contactNumber || ""}
+                              onChange={(e) => setDriverFormData({ ...driverFormData, contactNumber: e.target.value })}
+                              data-testid="input-driver-contact"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-3 mb-6">
+                          <div>
+                            <Label>ID Copy</Label>
+                            {driverFormData.idCopyImage && (
+                              <img 
+                                src={driverFormData.idCopyImage} 
+                                alt="ID Copy" 
+                                className="max-w-full rounded border mt-1 mb-2"
+                              />
+                            )}
+                            <DriverImageUpload 
+                              driverId={driver.id}
+                              field="idCopyImage"
+                              label="ID Copy"
+                              onUploadComplete={(url) => {
+                                setDriverFormData({ ...driverFormData, idCopyImage: url });
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label>Driver's License</Label>
+                            {driverFormData.driversLicenseImage && (
+                              <img 
+                                src={driverFormData.driversLicenseImage} 
+                                alt="Driver's License" 
+                                className="max-w-full rounded border mt-1 mb-2"
+                              />
+                            )}
+                            <DriverImageUpload 
+                              driverId={driver.id}
+                              field="driversLicenseImage"
+                              label="License"
+                              onUploadComplete={(url) => {
+                                setDriverFormData({ ...driverFormData, driversLicenseImage: url });
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label>PDP Certificate</Label>
+                            {driverFormData.pdpImage && (
+                              <img 
+                                src={driverFormData.pdpImage} 
+                                alt="PDP Certificate" 
+                                className="max-w-full rounded border mt-1 mb-2"
+                              />
+                            )}
+                            <DriverImageUpload 
+                              driverId={driver.id}
+                              field="pdpImage"
+                              label="PDP"
+                              onUploadComplete={(url) => {
+                                setDriverFormData({ ...driverFormData, pdpImage: url });
+                              }}
+                            />
+                          </div>
                         </div>
                         <div className="border-t pt-4">
                           <Button
@@ -1491,6 +1740,50 @@ export default function AdminSearch() {
                         <div data-testid={`text-driver-name-${driver.id}`}>
                           <span className="text-muted-foreground">Name:</span> {driver.driverName}
                         </div>
+                        {driver.idNumber && (
+                          <div data-testid={`text-driver-id-number-${driver.id}`}>
+                            <span className="text-muted-foreground">ID Number:</span> {driver.idNumber}
+                          </div>
+                        )}
+                        {driver.contactNumber && (
+                          <div data-testid={`text-driver-contact-${driver.id}`}>
+                            <span className="text-muted-foreground">Contact:</span> {driver.contactNumber}
+                          </div>
+                        )}
+                        {(driver.idCopyImage || driver.driversLicenseImage || driver.pdpImage) && (
+                          <div className="grid gap-4 md:grid-cols-3 mt-4">
+                            {driver.idCopyImage && (
+                              <div>
+                                <span className="text-muted-foreground block">ID Copy:</span>
+                                <img 
+                                  src={driver.idCopyImage} 
+                                  alt="ID Copy" 
+                                  className="max-w-32 rounded border mt-1"
+                                />
+                              </div>
+                            )}
+                            {driver.driversLicenseImage && (
+                              <div>
+                                <span className="text-muted-foreground block">Driver's License:</span>
+                                <img 
+                                  src={driver.driversLicenseImage} 
+                                  alt="Driver's License" 
+                                  className="max-w-32 rounded border mt-1"
+                                />
+                              </div>
+                            )}
+                            {driver.pdpImage && (
+                              <div>
+                                <span className="text-muted-foreground block">PDP Certificate:</span>
+                                <img 
+                                  src={driver.pdpImage} 
+                                  alt="PDP Certificate" 
+                                  className="max-w-32 rounded border mt-1"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -1695,6 +1988,53 @@ export default function AdminSearch() {
                               data-testid="input-vehicle-depot-edit"
                             />
                           </div>
+                          <div>
+                            <Label htmlFor="vehicle-make">Make</Label>
+                            <Input
+                              id="vehicle-make"
+                              value={vehicleFormData.make || ""}
+                              onChange={(e) => setVehicleFormData({ ...vehicleFormData, make: e.target.value })}
+                              data-testid="input-vehicle-make-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="vehicle-model">Model</Label>
+                            <Input
+                              id="vehicle-model"
+                              value={vehicleFormData.model || ""}
+                              onChange={(e) => setVehicleFormData({ ...vehicleFormData, model: e.target.value })}
+                              data-testid="input-vehicle-model-edit"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="vehicle-license-expiry">License Expiry Date</Label>
+                            <Input
+                              id="vehicle-license-expiry"
+                              type="date"
+                              value={vehicleFormData.licenseExpiryDate || ""}
+                              onChange={(e) => setVehicleFormData({ ...vehicleFormData, licenseExpiryDate: e.target.value })}
+                              data-testid="input-vehicle-license-expiry-edit"
+                            />
+                          </div>
+                        </div>
+                        <div className="mb-4">
+                          <Label>License Disk Image</Label>
+                          <div className="mt-2 flex items-start gap-4">
+                            {vehicleFormData.licenseDiskImage && (
+                              <img 
+                                src={vehicleFormData.licenseDiskImage} 
+                                alt="License Disk" 
+                                className="max-w-xs rounded border"
+                              />
+                            )}
+                            <VehicleImageUpload 
+                              vehicleId={vehicle.id}
+                              field="licenseDiskImage"
+                              onUploadComplete={(url) => {
+                                setVehicleFormData({ ...vehicleFormData, licenseDiskImage: url });
+                              }}
+                            />
+                          </div>
                         </div>
                         <div className="border-t pt-4">
                           <Button
@@ -1719,6 +2059,31 @@ export default function AdminSearch() {
                         <div data-testid={`text-vehicle-depot-${vehicle.id}`}>
                           <span className="text-muted-foreground">Depot Name:</span> {vehicle.depotName}
                         </div>
+                        {vehicle.make && (
+                          <div data-testid={`text-vehicle-make-${vehicle.id}`}>
+                            <span className="text-muted-foreground">Make:</span> {vehicle.make}
+                          </div>
+                        )}
+                        {vehicle.model && (
+                          <div data-testid={`text-vehicle-model-${vehicle.id}`}>
+                            <span className="text-muted-foreground">Model:</span> {vehicle.model}
+                          </div>
+                        )}
+                        {vehicle.licenseExpiryDate && (
+                          <div data-testid={`text-vehicle-license-expiry-${vehicle.id}`}>
+                            <span className="text-muted-foreground">License Expiry:</span> {vehicle.licenseExpiryDate}
+                          </div>
+                        )}
+                        {vehicle.licenseDiskImage && (
+                          <div className="mt-2">
+                            <span className="text-muted-foreground">License Disk:</span>
+                            <img 
+                              src={vehicle.licenseDiskImage} 
+                              alt="License Disk" 
+                              className="max-w-32 rounded border mt-1"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
