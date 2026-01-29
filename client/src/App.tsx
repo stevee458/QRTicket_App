@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppHeader from "@/components/AppHeader";
 import AdminAuthGuard from "@/components/AdminAuthGuard";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import Driver from "@/pages/driver";
 import Venue from "@/pages/venue";
 import Admin from "@/pages/admin";
@@ -61,6 +62,7 @@ function App() {
           </main>
         </div>
         <Toaster />
+        <InstallPrompt />
       </TooltipProvider>
     </QueryClientProvider>
   );
