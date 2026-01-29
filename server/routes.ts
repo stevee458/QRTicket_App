@@ -1235,6 +1235,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/venue/at-venue/:venueId", async (req, res) => {
+    try {
+      const venueId = req.params.venueId;
+
+      if (!venueId) {
+        res.status(400).json({
+          success: false,
+          error: "Venue ID is required",
+        });
+        return;
+      }
+
+      const studentsAtVenue = await storage.getStudentsAtVenue(venueId);
+
+      res.json({
+        success: true,
+        data: studentsAtVenue.map(item => item.student),
+      });
+    } catch (error) {
+      console.error("Get students at venue error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get students at venue",
+      });
+    }
+  });
+
   app.get("/api/venue/at-venue", async (req, res) => {
     try {
       const venueId = (req.session as any).venueId;
@@ -1251,7 +1278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        data: studentsAtVenue,
+        data: studentsAtVenue.map(item => item.student),
       });
     } catch (error) {
       console.error("Get students at venue error:", error);
