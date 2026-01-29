@@ -53,6 +53,18 @@ export const vehicles = pgTable("vehicles", {
   busNumber: text("bus_number").notNull(),
   registrationNumber: text("registration_number").notNull(),
   depotName: text("depot_name").notNull(),
+  make: text("make"),
+  model: text("model"),
+  licenseDiskImage: text("license_disk_image"),
+  licenseExpiryDate: date("license_expiry_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const vehicleDocuments = pgTable("vehicle_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleId: varchar("vehicle_id").notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+  documentImage: text("document_image").notNull(),
+  description: text("description").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -68,6 +80,11 @@ export const drivers = pgTable("drivers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyNumber: text("company_number").notNull(),
   driverName: text("driver_name").notNull(),
+  idNumber: text("id_number"),
+  contactNumber: text("contact_number"),
+  idCopyImage: text("id_copy_image"),
+  driversLicenseImage: text("drivers_license_image"),
+  pdpImage: text("pdp_image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -119,6 +136,14 @@ export const qrScansRelations = relations(qrScans, ({ one }) => ({
 
 export const vehiclesRelations = relations(vehicles, ({ many }) => ({
   scans: many(qrScans),
+  documents: many(vehicleDocuments),
+}));
+
+export const vehicleDocumentsRelations = relations(vehicleDocuments, ({ one }) => ({
+  vehicle: one(vehicles, {
+    fields: [vehicleDocuments.vehicleId],
+    references: [vehicles.id],
+  }),
 }));
 
 export const shiftsRelations = relations(shifts, ({ many }) => ({
@@ -155,6 +180,11 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   createdAt: true,
 });
 
+export const insertVehicleDocumentSchema = createInsertSchema(vehicleDocuments).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertShiftSchema = createInsertSchema(shifts).omit({
   id: true,
   createdAt: true,
@@ -180,6 +210,8 @@ export type InsertQRScan = z.infer<typeof insertQRScanSchema>;
 export type QRScan = typeof qrScans.$inferSelect;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertVehicleDocument = z.infer<typeof insertVehicleDocumentSchema>;
+export type VehicleDocument = typeof vehicleDocuments.$inferSelect;
 export type InsertShift = z.infer<typeof insertShiftSchema>;
 export type Shift = typeof shifts.$inferSelect;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
