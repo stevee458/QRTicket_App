@@ -33,6 +33,7 @@ export default function AppHeader() {
 
   const navItems = [
     { path: "/driver", label: "Driver" },
+    { path: "/venue", label: "Venue" },
     { path: "/admin", label: "Admin" },
     { path: "/parent", label: "Parent" },
   ];
