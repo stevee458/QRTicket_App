@@ -71,6 +71,13 @@ export const drivers = pgTable("drivers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const admins = pgTable("admins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const parentsRelations = relations(parents, ({ many }) => ({
   students: many(students),
 }));
@@ -158,6 +165,11 @@ export const insertDriverSchema = createInsertSchema(drivers).omit({
   createdAt: true,
 });
 
+export const insertAdminSchema = createInsertSchema(admins).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertParent = z.infer<typeof insertParentSchema>;
 export type Parent = typeof parents.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -172,3 +184,5 @@ export type InsertShift = z.infer<typeof insertShiftSchema>;
 export type Shift = typeof shifts.$inferSelect;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
 export type Driver = typeof drivers.$inferSelect;
+export type InsertAdmin = z.infer<typeof insertAdminSchema>;
+export type Admin = typeof admins.$inferSelect;
