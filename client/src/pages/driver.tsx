@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -205,6 +206,9 @@ export default function DriverPage() {
   const [session, setSession] = useState<DriverSession | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [selectedShiftId, setSelectedShiftId] = useState("");
+  
+  // Logout confirmation
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
   // Scanning state
   const [scanMode, setScanMode] = useState<"Board" | "Alight" | null>(null);
@@ -542,7 +546,8 @@ export default function DriverPage() {
     });
   };
 
-  const handleLogout = () => {
+  const confirmLogout = () => {
+    setShowLogoutDialog(false);
     setIsLoggedIn(false);
     setSession(null);
     setDriverName("");
@@ -1040,7 +1045,7 @@ export default function DriverPage() {
                   <CardTitle data-testid="text-shift-selection-title">Start Your Shift</CardTitle>
                   <CardDescription>Select vehicle and shift</CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="button-logout">
+                <Button variant="ghost" size="icon" onClick={() => setShowLogoutDialog(true)} data-testid="button-logout">
                   <LogOut className="w-4 h-4" />
                 </Button>
               </div>
@@ -1117,7 +1122,7 @@ export default function DriverPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleLogout}
+              onClick={() => setShowLogoutDialog(true)}
               data-testid="button-end-shift"
             >
               <LogOut className="w-4 h-4" />
@@ -1439,6 +1444,24 @@ export default function DriverPage() {
             </Button>
           </DialogContent>
         </Dialog>
+
+        {/* Logout confirmation dialog */}
+        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Log Out?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You can close the app without logging out - your session will remain active for your next shift. Only log out if you're done for the day or switching to a different driver.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-logout">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmLogout} data-testid="button-confirm-logout">
+                Log Out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

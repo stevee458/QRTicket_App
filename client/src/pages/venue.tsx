@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -189,6 +190,9 @@ export default function VenuePage() {
   const [password, setPassword] = useState("");
   
   const [session, setSession] = useState<VenueSession | null>(null);
+  
+  // Logout confirmation
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
   const [scanMode, setScanMode] = useState<"In" | "Out" | null>(null);
   const [showScanDialog, setShowScanDialog] = useState(false);
@@ -472,7 +476,8 @@ export default function VenuePage() {
     loginMutation.mutate({ name: staffName, password });
   };
 
-  const handleLogout = async () => {
+  const confirmLogout = async () => {
+    setShowLogoutDialog(false);
     try {
       await apiRequest("POST", "/api/venue/logout", {});
     } catch (error) {
@@ -986,7 +991,7 @@ export default function VenuePage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleLogout}
+              onClick={() => setShowLogoutDialog(true)}
               data-testid="button-logout"
             >
               <LogOut className="w-4 h-4" />
@@ -1340,6 +1345,24 @@ export default function VenuePage() {
             </Button>
           </DialogContent>
         </Dialog>
+
+        {/* Logout confirmation dialog */}
+        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Log Out?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You can close the app without logging out - your session will remain active. Only log out if you're done for the day or switching to a different staff member.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-logout">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmLogout} data-testid="button-confirm-logout">
+                Log Out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
