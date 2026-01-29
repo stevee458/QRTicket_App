@@ -92,14 +92,27 @@ export function registerObjectStorageRoutes(app: Express): void {
    * {
    *   "objectPath": "/objects/uploads/uuid"
    * }
+   * 
+   * Requires admin authentication.
    */
   app.delete("/api/uploads/delete", async (req, res) => {
     try {
+      const adminId = (req.session as any)?.adminId;
+      if (!adminId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { objectPath } = req.body;
 
       if (!objectPath) {
         return res.status(400).json({
           error: "Missing required field: objectPath",
+        });
+      }
+
+      if (typeof objectPath !== "string" || !objectPath.startsWith("/objects/")) {
+        return res.status(400).json({
+          error: "Invalid objectPath format",
         });
       }
 

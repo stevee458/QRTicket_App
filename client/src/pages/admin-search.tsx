@@ -288,6 +288,14 @@ export default function AdminSearch() {
   const [vehicleFormData, setVehicleFormData] = useState<Partial<Vehicle>>({});
   const [shiftFormData, setShiftFormData] = useState<Partial<Shift>>({});
   const [driverFormData, setDriverFormData] = useState<Partial<Driver>>({});
+  const [showDeleteImageDialog, setShowDeleteImageDialog] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState<{
+    entityType: "vehicle" | "driver";
+    entityId: string;
+    field: string;
+    objectPath: string;
+    label: string;
+  } | null>(null);
   const { toast } = useToast();
 
   const {
@@ -607,6 +615,38 @@ export default function AdminSearch() {
     },
   });
 
+  const deleteImageMutation = useMutation({
+    mutationFn: async ({ entityType, entityId, field, objectPath }: {
+      entityType: "vehicle" | "driver";
+      entityId: string;
+      field: string;
+      objectPath: string;
+    }) => {
+      await apiRequest("DELETE", "/api/uploads/delete", { objectPath });
+      const endpoint = entityType === "vehicle" ? `/api/vehicles/${entityId}` : `/api/drivers/${entityId}`;
+      await apiRequest("PUT", endpoint, { [field]: null });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/search/vehicles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/search/drivers"] });
+      setShowDeleteImageDialog(false);
+      setImageToDelete(null);
+      toast({
+        title: "Success",
+        description: "Image deleted successfully",
+      });
+    },
+    onError: () => {
+      setShowDeleteImageDialog(false);
+      setImageToDelete(null);
+      toast({
+        title: "Error",
+        description: "Failed to delete image",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Clear search state when switching between tabs
   useEffect(() => {
     setSearchTerm("");
@@ -764,6 +804,23 @@ export default function AdminSearch() {
     }
     setShowDeleteVehicleDialog(false);
     setVehicleToDelete(null);
+  };
+
+  const handleDeleteImageClick = (
+    entityType: "vehicle" | "driver",
+    entityId: string,
+    field: string,
+    objectPath: string,
+    label: string
+  ) => {
+    setImageToDelete({ entityType, entityId, field, objectPath, label });
+    setShowDeleteImageDialog(true);
+  };
+
+  const confirmDeleteImage = () => {
+    if (imageToDelete) {
+      deleteImageMutation.mutate(imageToDelete);
+    }
   };
 
   const copyQRCode = async (qrCode: string, studentName: string) => {
@@ -1668,11 +1725,28 @@ export default function AdminSearch() {
                           <div>
                             <Label>ID Copy</Label>
                             {driverFormData.idCopyImage && (
-                              <img 
-                                src={driverFormData.idCopyImage} 
-                                alt="ID Copy" 
-                                className="max-w-full rounded border mt-1 mb-2"
-                              />
+                              <div className="relative inline-block mt-1 mb-2">
+                                <img 
+                                  src={driverFormData.idCopyImage} 
+                                  alt="ID Copy" 
+                                  className="max-w-full rounded border"
+                                />
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1"
+                                  onClick={() => handleDeleteImageClick(
+                                    "driver",
+                                    driver.id,
+                                    "idCopyImage",
+                                    driverFormData.idCopyImage!,
+                                    "ID Copy"
+                                  )}
+                                  data-testid={`button-delete-id-copy-${driver.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             )}
                             <DriverImageUpload 
                               driverId={driver.id}
@@ -1686,11 +1760,28 @@ export default function AdminSearch() {
                           <div>
                             <Label>Driver's License</Label>
                             {driverFormData.driversLicenseImage && (
-                              <img 
-                                src={driverFormData.driversLicenseImage} 
-                                alt="Driver's License" 
-                                className="max-w-full rounded border mt-1 mb-2"
-                              />
+                              <div className="relative inline-block mt-1 mb-2">
+                                <img 
+                                  src={driverFormData.driversLicenseImage} 
+                                  alt="Driver's License" 
+                                  className="max-w-full rounded border"
+                                />
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1"
+                                  onClick={() => handleDeleteImageClick(
+                                    "driver",
+                                    driver.id,
+                                    "driversLicenseImage",
+                                    driverFormData.driversLicenseImage!,
+                                    "Driver's License"
+                                  )}
+                                  data-testid={`button-delete-drivers-license-${driver.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             )}
                             <DriverImageUpload 
                               driverId={driver.id}
@@ -1704,11 +1795,28 @@ export default function AdminSearch() {
                           <div>
                             <Label>PDP Certificate</Label>
                             {driverFormData.pdpImage && (
-                              <img 
-                                src={driverFormData.pdpImage} 
-                                alt="PDP Certificate" 
-                                className="max-w-full rounded border mt-1 mb-2"
-                              />
+                              <div className="relative inline-block mt-1 mb-2">
+                                <img 
+                                  src={driverFormData.pdpImage} 
+                                  alt="PDP Certificate" 
+                                  className="max-w-full rounded border"
+                                />
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1"
+                                  onClick={() => handleDeleteImageClick(
+                                    "driver",
+                                    driver.id,
+                                    "pdpImage",
+                                    driverFormData.pdpImage!,
+                                    "PDP Certificate"
+                                  )}
+                                  data-testid={`button-delete-pdp-${driver.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             )}
                             <DriverImageUpload 
                               driverId={driver.id}
@@ -2021,11 +2129,28 @@ export default function AdminSearch() {
                           <Label>License Disk Image</Label>
                           <div className="mt-2 flex items-start gap-4">
                             {vehicleFormData.licenseDiskImage && (
-                              <img 
-                                src={vehicleFormData.licenseDiskImage} 
-                                alt="License Disk" 
-                                className="max-w-xs rounded border"
-                              />
+                              <div className="relative">
+                                <img 
+                                  src={vehicleFormData.licenseDiskImage} 
+                                  alt="License Disk" 
+                                  className="max-w-xs rounded border"
+                                />
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1"
+                                  onClick={() => handleDeleteImageClick(
+                                    "vehicle",
+                                    vehicle.id,
+                                    "licenseDiskImage",
+                                    vehicleFormData.licenseDiskImage!,
+                                    "License Disk Image"
+                                  )}
+                                  data-testid={`button-delete-license-disk-${vehicle.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             )}
                             <VehicleImageUpload 
                               vehicleId={vehicle.id}
@@ -2227,6 +2352,28 @@ export default function AdminSearch() {
               data-testid="button-confirm-delete-vehicle"
             >
               Delete Vehicle
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteImageDialog} onOpenChange={setShowDeleteImageDialog}>
+        <AlertDialogContent data-testid="dialog-delete-image">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Image</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the {imageToDelete?.label || "image"}. This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-image">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteImage}
+              data-testid="button-confirm-delete-image"
+            >
+              Delete Image
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
