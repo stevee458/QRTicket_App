@@ -65,7 +65,7 @@ export function InstallPrompt() {
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-sm">Install QRTicket</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              Add to your home screen for quick access
+              Add to your home screen for quick access. After installing, you may need to find QRTicket in your apps and drag it to your home screen.
             </p>
             <div className="flex gap-2 mt-3">
               <Button size="sm" onClick={handleInstall} data-testid="button-install-app">
