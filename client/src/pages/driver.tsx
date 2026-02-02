@@ -16,6 +16,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Html5Qrcode } from "html5-qrcode";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface Driver {
   id: string;
@@ -194,7 +195,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   );
 }
 
-export default function DriverPage() {
+function DriverPageContent() {
   const { toast } = useToast();
   
   // Authentication state
@@ -1464,5 +1465,16 @@ export default function DriverPage() {
         </AlertDialog>
       </div>
     </div>
+  );
+}
+
+export default function DriverPage() {
+  return (
+    <ErrorBoundary
+      fallbackTitle="Driver Portal Unavailable"
+      fallbackDescription="This page requires camera and location permissions. Please try on a mobile device or grant permissions in your browser settings."
+    >
+      <DriverPageContent />
+    </ErrorBoundary>
   );
 }

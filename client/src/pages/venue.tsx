@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Html5Qrcode } from "html5-qrcode";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface VenueStaff {
   id: string;
@@ -182,7 +183,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   );
 }
 
-export default function VenuePage() {
+function VenuePageContent() {
   const { toast } = useToast();
   
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -1365,5 +1366,16 @@ export default function VenuePage() {
         </AlertDialog>
       </div>
     </div>
+  );
+}
+
+export default function VenuePage() {
+  return (
+    <ErrorBoundary
+      fallbackTitle="Venue Portal Unavailable"
+      fallbackDescription="This page requires camera and location permissions. Please try on a mobile device or grant permissions in your browser settings."
+    >
+      <VenuePageContent />
+    </ErrorBoundary>
   );
 }
