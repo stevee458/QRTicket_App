@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Bus, MapPin, Activity, Search, ArrowRight, Clock, User } from "lucide-react";
+import { Users, Bus, MapPin, Activity, Search, ArrowRight, Clock, User, Flag } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks } from "date-fns";
 import { StudentStatusIndicator } from "@/components/StudentStatusIndicator";
 
@@ -362,9 +363,21 @@ export default function Admin() {
                           data-testid={`trip-${scan.id}`}
                         >
                           <div className="flex items-center gap-3">
-                            <Badge variant={scan.source === "vehicle" ? "default" : "secondary"}>
-                              {scan.scanType}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge variant={scan.source === "vehicle" ? "default" : "secondary"}>
+                                {scan.scanType}
+                              </Badge>
+                              {scan.forced && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Flag className="w-3 h-3 text-destructive cursor-help" data-testid={`flag-forced-${scan.id}`} />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Force alighted: Driver ended shift</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
                             <div>
                               <p className="text-sm font-medium">
                                 {scan.source === "vehicle"

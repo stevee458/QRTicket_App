@@ -1458,6 +1458,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/driver/end-shift", async (req, res) => {
+    try {
+      const { driverId, vehicleId, shiftId, location } = req.body;
+
+      if (!driverId || !vehicleId || !shiftId) {
+        res.status(400).json({
+          success: false,
+          error: "driverId, vehicleId, and shiftId are required",
+        });
+        return;
+      }
+
+      const onboardStudents = await storage.getOnboardStudents(driverId, vehicleId, shiftId);
+
+      const forceAlightedStudents: Array<{ studentId: string; studentName: string }> = [];
+
+      for (const student of onboardStudents) {
+        await storage.createQRScan({
+          studentId: student.id,
+          driverId,
+          vehicleId,
+          shiftId,
+          scanType: "Off",
+          location: location || "Shift ended by driver",
+          forced: true,
+          forceReason: "Driver ended shift",
+          synced: true,
+        });
+        forceAlightedStudents.push({ studentId: student.id, studentName: student.name });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          forceAlightedCount: forceAlightedStudents.length,
+          forceAlightedStudents,
+        },
+      });
+    } catch (error) {
+      console.error("End shift error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to end shift",
+      });
+    }
+  });
+
   app.post("/api/parent/login", async (req, res) => {
     try {
       const { username, password } = req.body;

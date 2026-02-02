@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Calendar, AlertTriangle, Download, CheckCircle } from "lucide-react";
+import { LogOut, Calendar, AlertTriangle, Download, CheckCircle, Flag } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -592,9 +593,21 @@ export default function Parent() {
                                 <Badge variant={scan.source === "vehicle" ? "default" : "outline"}>
                                   {scan.source === "vehicle" ? "Bus" : "Venue"}
                                 </Badge>
-                                <Badge variant={scan.scanType === "Board" || scan.scanType === "Check In" ? "default" : "secondary"}>
-                                  {scan.scanType}
-                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <Badge variant={scan.scanType === "Board" || scan.scanType === "Check In" ? "default" : "secondary"}>
+                                    {scan.scanType}
+                                  </Badge>
+                                  {scan.forced && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Flag className="w-3 h-3 text-destructive cursor-help" data-testid={`flag-forced-${scan.id}`} />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Force alighted: Driver ended shift</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
                                 <span className="text-sm font-medium">
                                   {format(new Date(scan.scannedAt), "PPp")}
                                 </span>

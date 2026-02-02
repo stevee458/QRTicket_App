@@ -211,6 +211,10 @@ function DriverPageContent() {
   // Logout confirmation
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
+  // End shift confirmation
+  const [showEndShiftDialog, setShowEndShiftDialog] = useState(false);
+  const [isEndingShift, setIsEndingShift] = useState(false);
+  
   // Scanning state
   const [scanMode, setScanMode] = useState<"Board" | "Alight" | null>(null);
   const [showScanDialog, setShowScanDialog] = useState(false);
@@ -559,6 +563,49 @@ function DriverPageContent() {
       title: "Logged Out",
       description: "You have been logged out successfully",
     });
+  };
+
+  const handleEndShift = async () => {
+    if (!session) return;
+    
+    setIsEndingShift(true);
+    
+    try {
+      const response = await apiRequest("POST", "/api/driver/end-shift", {
+        driverId: session.driver.id,
+        vehicleId: session.vehicle.id,
+        shiftId: session.shift.id,
+        location: currentLocationRef.current,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        const forceCount = result.data.forceAlightedCount;
+        
+        setShowEndShiftDialog(false);
+        setSession(null);
+        localStorage.removeItem("driverSession");
+        
+        toast({
+          title: "Shift Ended",
+          description: forceCount > 0 
+            ? `${forceCount} student(s) were automatically alighted`
+            : "Shift ended successfully - no students were on board",
+        });
+        
+        refetchOnboard();
+      }
+    } catch (error) {
+      console.error("End shift error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to end shift. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEndingShift(false);
+    }
   };
 
   const handleScanButtonClick = (mode: "Board" | "Alight") => {
@@ -1121,10 +1168,18 @@ function DriverPageContent() {
               See All Onboard ({onboardData?.data.length || 0})
             </Button>
             <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowEndShiftDialog(true)}
+              data-testid="button-end-shift"
+            >
+              End Shift
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               onClick={() => setShowLogoutDialog(true)}
-              data-testid="button-end-shift"
+              data-testid="button-logout"
             >
               <LogOut className="w-4 h-4" />
             </Button>
@@ -1459,6 +1514,49 @@ function DriverPageContent() {
               <AlertDialogCancel data-testid="button-cancel-logout">Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={confirmLogout} data-testid="button-confirm-logout">
                 Log Out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* End Shift confirmation dialog */}
+        <AlertDialog open={showEndShiftDialog} onOpenChange={setShowEndShiftDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>End Shift?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {onboardData?.data && onboardData.data.length > 0 ? (
+                  <>
+                    <span className="text-destructive font-semibold">
+                      Warning: {onboardData.data.length} student(s) are still on board.
+                    </span>
+                    <br />
+                    Ending the shift will automatically mark them as alighted (force alight). 
+                    This action cannot be undone.
+                  </>
+                ) : (
+                  "No students are currently on board. Are you sure you want to end this shift?"
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-end-shift" disabled={isEndingShift}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleEndShift} 
+                data-testid="button-confirm-end-shift"
+                disabled={isEndingShift}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {isEndingShift ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Ending...
+                  </>
+                ) : (
+                  "End Shift"
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
