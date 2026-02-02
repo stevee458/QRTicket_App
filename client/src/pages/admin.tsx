@@ -1,15 +1,27 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Bus, MapPin, Activity, Search, ArrowRight, Clock, User, Flag } from "lucide-react";
+import { Users, Bus, MapPin, Activity, Search, ArrowRight, Clock, User, Flag, UserX } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { StudentStatusIndicator } from "@/components/StudentStatusIndicator";
 
 interface DashboardStats {
@@ -88,6 +100,35 @@ export default function Admin() {
   const [dateFilter, setDateFilter] = useState<"today" | "thisWeek" | "lastWeek" | "thisMonth" | "custom">("thisWeek");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+  const [studentToRelease, setStudentToRelease] = useState<ActiveStudent | null>(null);
+  
+  const { toast } = useToast();
+
+  const forceReleaseMutation = useMutation({
+    mutationFn: async (studentId: string) => {
+      return apiRequest(`/api/admin/force-release/${studentId}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "Admin force release" }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Student Released",
+        description: "The student has been force-released from their location.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/active-students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/recent-activity"] });
+      setStudentToRelease(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Release Failed",
+        description: error.message || "Failed to force-release student",
+        variant: "destructive",
+      });
+    },
+  });
 
   const { data: statsData, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/admin/dashboard/stats"],
@@ -438,9 +479,26 @@ export default function Admin() {
                           <p className="text-xs text-muted-foreground">{item.student.school}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{item.locationName}</p>
-                        <p className="text-xs text-muted-foreground">Since {formatTime(item.since)}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{item.locationName}</p>
+                          <p className="text-xs text-muted-foreground">Since {formatTime(item.since)}</p>
+                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setStudentToRelease(item)}
+                              data-testid={`button-force-release-${item.student.id}`}
+                            >
+                              <UserX className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Force release student</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}
@@ -526,6 +584,33 @@ export default function Admin() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={!!studentToRelease} onOpenChange={() => setStudentToRelease(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force Release Student?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will force-release <strong>{studentToRelease?.student.name}</strong> from{" "}
+              <strong>{studentToRelease?.locationName}</strong>. This action creates an audit record
+              and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-release">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (studentToRelease) {
+                  forceReleaseMutation.mutate(studentToRelease.student.id);
+                }
+              }}
+              disabled={forceReleaseMutation.isPending}
+              data-testid="button-confirm-release"
+            >
+              {forceReleaseMutation.isPending ? "Releasing..." : "Force Release"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

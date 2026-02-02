@@ -1811,6 +1811,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin force-release a student from their current location
+  app.post("/api/admin/force-release/:studentId", async (req, res) => {
+    try {
+      const adminId = req.session.adminId;
+      if (!adminId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const { studentId } = req.params;
+      const { reason } = req.body;
+
+      // Get student's current active location
+      const activeLocation = await storage.getStudentActiveLocation(studentId);
+      
+      if (!activeLocation) {
+        res.status(400).json({
+          success: false,
+          error: "Student is not currently at any active location",
+        });
+        return;
+      }
+
+      // Create forced release record
+      const releaseTime = new Date();
+      const forceReason = reason || "Admin force release";
+
+      await storage.releaseStudentFromPreviousLocation(
+        studentId,
+        new Date(releaseTime.getTime() + 1000), // Ensure it's "newer" than current location
+        forceReason
+      );
+
+      res.json({
+        success: true,
+        data: {
+          releasedFrom: activeLocation.type,
+          releaseTime,
+          reason: forceReason,
+        },
+      });
+    } catch (error) {
+      console.error("Admin force release error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to force release student",
+      });
+    }
+  });
+
   app.get("/api/admin/me", async (req, res) => {
     try {
       const adminId = req.session.adminId;
