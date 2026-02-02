@@ -26,6 +26,15 @@ export default function Admin() {
               </p>
             </div>
           </Link>
+
+          <Link href="/admin/register-venue">
+            <div className="p-6 border rounded-lg hover-elevate cursor-pointer">
+              <h2 className="text-xl font-semibold mb-2">Register Venue</h2>
+              <p className="text-muted-foreground">
+                Register venues (schools, activity centers) for student check-in/out
+              </p>
+            </div>
+          </Link>
           
           <Link href="/admin/search">
             <div className="p-6 border rounded-lg hover-elevate cursor-pointer">
