@@ -1134,7 +1134,7 @@ function DriverPageContent() {
                 className="w-full"
                 data-testid="button-start-shift"
               >
-                Start Shift
+                {selectedVehicleId && selectedShiftId ? "Continue Shift" : "Start Shift"}
               </Button>
             </CardContent>
           </Card>
