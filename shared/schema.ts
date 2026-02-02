@@ -110,6 +110,8 @@ export const venueStaff = pgTable("venue_staff", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   venueId: varchar("venue_id").notNull().references(() => venues.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
+  idNumber: text("id_number"),
+  contactNumber: text("contact_number"),
   password: text("password").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

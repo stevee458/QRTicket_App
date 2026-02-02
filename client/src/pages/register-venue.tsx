@@ -12,10 +12,10 @@ import type { InsertVenue } from "@shared/schema";
 
 export default function RegisterVenue() {
   const { toast } = useToast();
-  const [venueFormData, setVenueFormData] = useState<Partial<InsertVenue> & { staff?: Array<{ name: string; password: string }> }>({});
+  const [venueFormData, setVenueFormData] = useState<Partial<InsertVenue> & { staff?: Array<{ name: string; idNumber: string; contactNumber: string; password: string }> }>({});
 
   const createVenueMutation = useMutation({
-    mutationFn: async (data: Partial<InsertVenue> & { staff?: Array<{ name: string; password: string }> }) => {
+    mutationFn: async (data: Partial<InsertVenue> & { staff?: Array<{ name: string; idNumber: string; contactNumber: string; password: string }> }) => {
       const venueResponse = await apiRequest("POST", "/api/venues", {
         name: data.name,
         locationDescription: data.locationDescription,
@@ -67,7 +67,7 @@ export default function RegisterVenue() {
     const currentStaff = venueFormData.staff || [];
     setVenueFormData({
       ...venueFormData,
-      staff: [...currentStaff, { name: "", password: "" }],
+      staff: [...currentStaff, { name: "", idNumber: "", contactNumber: "", password: "" }],
     });
   };
 
@@ -79,7 +79,7 @@ export default function RegisterVenue() {
     });
   };
 
-  const updateStaffMember = (index: number, field: "name" | "password", value: string) => {
+  const updateStaffMember = (index: number, field: "name" | "idNumber" | "contactNumber" | "password", value: string) => {
     const currentStaff = venueFormData.staff || [];
     const updatedStaff = currentStaff.map((s, i) =>
       i === index ? { ...s, [field]: value } : s
@@ -174,35 +174,58 @@ export default function RegisterVenue() {
                   </Button>
                 </div>
                 {venueFormData.staff?.map((staff, index) => (
-                  <div key={index} className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <Label htmlFor={`staff-name-${index}`}>Name</Label>
-                      <Input
-                        id={`staff-name-${index}`}
-                        value={staff.name}
-                        onChange={(e) => updateStaffMember(index, "name", e.target.value)}
-                        data-testid={`input-staff-name-${index}`}
-                      />
+                  <div key={index} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Staff Member {index + 1}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeStaffMember(index)}
+                        data-testid={`button-remove-staff-${index}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="flex-1">
-                      <Label htmlFor={`staff-password-${index}`}>Password</Label>
-                      <Input
-                        id={`staff-password-${index}`}
-                        type="password"
-                        value={staff.password}
-                        onChange={(e) => updateStaffMember(index, "password", e.target.value)}
-                        data-testid={`input-staff-password-${index}`}
-                      />
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor={`staff-name-${index}`}>Name *</Label>
+                        <Input
+                          id={`staff-name-${index}`}
+                          value={staff.name}
+                          onChange={(e) => updateStaffMember(index, "name", e.target.value)}
+                          data-testid={`input-staff-name-${index}`}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`staff-id-number-${index}`}>ID Number</Label>
+                        <Input
+                          id={`staff-id-number-${index}`}
+                          value={staff.idNumber}
+                          onChange={(e) => updateStaffMember(index, "idNumber", e.target.value)}
+                          data-testid={`input-staff-id-number-${index}`}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`staff-contact-${index}`}>Contact Number</Label>
+                        <Input
+                          id={`staff-contact-${index}`}
+                          value={staff.contactNumber}
+                          onChange={(e) => updateStaffMember(index, "contactNumber", e.target.value)}
+                          data-testid={`input-staff-contact-${index}`}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`staff-password-${index}`}>Password *</Label>
+                        <Input
+                          id={`staff-password-${index}`}
+                          type="password"
+                          value={staff.password}
+                          onChange={(e) => updateStaffMember(index, "password", e.target.value)}
+                          data-testid={`input-staff-password-${index}`}
+                        />
+                      </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeStaffMember(index)}
-                      data-testid={`button-remove-staff-${index}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 ))}
               </div>
