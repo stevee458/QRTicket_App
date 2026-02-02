@@ -13,6 +13,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 
 const formSchema = z.object({
@@ -37,6 +38,7 @@ const formSchema = z.object({
         { message: "Student must be between 5 and 25 years old" }
       ),
       school: z.string().min(1, "School is required"),
+      specialNeeds: z.string().optional(),
     })
   ).min(1, "At least one student is required"),
 });
@@ -67,6 +69,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
           email: "",
           dateOfBirth: "",
           school: "",
+          specialNeeds: "",
         },
       ],
     },
@@ -85,6 +88,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
         email: parentEmail || "",
         dateOfBirth: "",
         school: "",
+        specialNeeds: "",
       },
     ]);
     setStudentCount(studentCount + 1);
@@ -385,6 +389,26 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                               <Input
                                 placeholder="Enter school name"
                                 data-testid={`input-student-school-${index}`}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`students.${index}.specialNeeds`}
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel>Special Needs</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Describe any special needs or requirements (optional)"
+                                data-testid={`input-student-special-needs-${index}`}
+                                className="resize-none"
+                                rows={3}
                                 {...field}
                               />
                             </FormControl>

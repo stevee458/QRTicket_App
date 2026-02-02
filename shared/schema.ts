@@ -23,6 +23,7 @@ export const students = pgTable("students", {
   email: text("email").notNull(),
   dateOfBirth: date("date_of_birth").notNull(),
   school: text("school").notNull(),
+  specialNeeds: text("special_needs"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

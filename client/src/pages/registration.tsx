@@ -11,6 +11,7 @@ interface Student {
   email: string;
   dateOfBirth: string;
   school: string;
+  specialNeeds?: string;
 }
 
 interface RegistrationData {
@@ -45,6 +46,7 @@ interface RegistrationResponse {
       email: string;
       dateOfBirth: string;
       school: string;
+      specialNeeds?: string;
       qrCode: string;
     }>;
   };

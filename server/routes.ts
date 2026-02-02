@@ -21,6 +21,7 @@ const registrationSchema = z.object({
       email: z.string().email(),
       dateOfBirth: z.string().min(1),
       school: z.string().min(1),
+      specialNeeds: z.string().optional(),
     })
   ).min(1),
 });
@@ -45,6 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: student.email,
         dateOfBirth: student.dateOfBirth,
         school: student.school,
+        specialNeeds: student.specialNeeds || null,
       }));
 
       const result = await storage.createRegistration(parentData, studentsData);
