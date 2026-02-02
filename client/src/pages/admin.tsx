@@ -184,10 +184,10 @@ export default function Admin() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-5">
-          <Card>
+          <Card className="hover-elevate transition-colors border-l-4 border-l-primary/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
               <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="stat-total-students">
@@ -196,10 +196,10 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover-elevate transition-colors border-l-4 border-l-orange-500/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
               <CardTitle className="text-sm font-medium">Total Parents</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
+              <User className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="stat-total-parents">
@@ -208,7 +208,7 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <Card className="border-green-500/50">
+          <Card className="hover-elevate transition-colors border-l-4 border-green-500/50 bg-green-50/30 dark:bg-green-950/10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
               <CardTitle className="text-sm font-medium">On Buses</CardTitle>
               <Bus className="h-4 w-4 text-green-600" />
@@ -220,7 +220,7 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <Card className="border-blue-500/50">
+          <Card className="hover-elevate transition-colors border-l-4 border-blue-500/50 bg-blue-50/30 dark:bg-blue-950/10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
               <CardTitle className="text-sm font-medium">At Venues</CardTitle>
               <MapPin className="h-4 w-4 text-blue-600" />
@@ -232,10 +232,10 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover-elevate transition-colors border-l-4 border-l-purple-500/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
               <CardTitle className="text-sm font-medium">Today's Scans</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <Activity className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="stat-today-scans">
@@ -245,9 +245,9 @@ export default function Admin() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="border-primary/20 shadow-md">
+          <CardHeader className="border-b bg-primary/5">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <Search className="h-5 w-5" />
               Find Student
             </CardTitle>
@@ -393,9 +393,9 @@ export default function Admin() {
         </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="border-t-4 border-t-primary shadow-sm">
+            <CardHeader className="bg-primary/5">
+              <CardTitle className="flex items-center gap-2 text-primary">
                 <Clock className="h-5 w-5" />
                 Currently Active Students
               </CardTitle>
@@ -434,9 +434,9 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="border-t-4 border-t-purple-500 shadow-sm">
+            <CardHeader className="bg-purple-500/5">
+              <CardTitle className="flex items-center gap-2 text-purple-600">
                 <Activity className="h-5 w-5" />
                 Recent Activity
               </CardTitle>
@@ -474,9 +474,9 @@ export default function Admin() {
           </Card>
         </div>
 
-        <Card>
+        <Card className="border-accent/20 bg-accent/5">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="text-accent-foreground">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-4">
