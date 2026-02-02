@@ -1214,7 +1214,6 @@ function VenuePageContent() {
                         onClick={handleNextScan} 
                         className="h-32 w-32 rounded-full flex flex-col items-center justify-center gap-2 text-base font-semibold" 
                         data-testid="button-next-scan"
-                        disabled={!gpsPermissionGranted && cameraPermission !== 'granted'}
                       >
                         <Camera className="w-8 h-8" />
                         <span>{cameraPermission === 'unknown' ? 'Enable Camera' : 'Next Scan'}</span>
