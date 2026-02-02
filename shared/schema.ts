@@ -45,6 +45,7 @@ export const qrScans = pgTable("qr_scans", {
   scanType: text("scan_type").notNull(),
   location: text("location"),
   forced: boolean("forced").notNull().default(false),
+  forceReason: text("force_reason"),
   synced: boolean("synced").notNull().default(true),
   scannedAt: timestamp("scanned_at").defaultNow().notNull(),
 });
@@ -126,6 +127,7 @@ export const venueScans = pgTable("venue_scans", {
   location: text("location"),
   locationConfirmed: boolean("location_confirmed").notNull().default(false),
   forced: boolean("forced").notNull().default(false),
+  forceReason: text("force_reason"),
   synced: boolean("synced").notNull().default(true),
   scannedAt: timestamp("scanned_at").defaultNow().notNull(),
 });
