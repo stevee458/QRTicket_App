@@ -1791,6 +1791,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const stats = await storage.getDashboardStats();
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
       res.json({ success: true, data: stats });
     } catch (error) {
       console.error("Dashboard stats error:", error);
@@ -1807,6 +1810,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const activeStudents = await storage.getActiveStudents();
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
       res.json({ success: true, data: activeStudents });
     } catch (error) {
       console.error("Active students error:", error);
@@ -1824,6 +1830,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const limit = parseInt(req.query.limit as string) || 20;
       const activity = await storage.getRecentActivity(limit);
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
       res.json({ success: true, data: activity });
     } catch (error) {
       console.error("Recent activity error:", error);
