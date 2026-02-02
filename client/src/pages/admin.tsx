@@ -118,7 +118,9 @@ export default function Admin() {
       case "today":
         const todayStart = new Date(now);
         todayStart.setHours(0, 0, 0, 0);
-        return { startDate: todayStart, endDate: now };
+        const todayEnd = new Date(now);
+        todayEnd.setHours(23, 59, 59, 999);
+        return { startDate: todayStart, endDate: todayEnd };
       case "thisWeek":
         return { startDate: startOfWeek(now, { weekStartsOn: 1 }), endDate: endOfWeek(now, { weekStartsOn: 1 }) };
       case "lastWeek":
