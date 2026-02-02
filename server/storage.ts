@@ -199,6 +199,25 @@ export interface IStorage {
   }>>;
 
   getRecentActivity(limit?: number): Promise<CombinedScan[]>;
+  
+  // Get student's current active location (bus or venue) for reconciliation
+  getStudentActiveLocation(studentId: string): Promise<{
+    type: "bus" | "venue";
+    scanId: string;
+    scannedAt: Date;
+    vehicleId?: string;
+    driverId?: string;
+    shiftId?: string;
+    venueId?: string;
+    staffId?: string;
+  } | null>;
+  
+  // Release student from previous location by creating a forced-off record
+  releaseStudentFromPreviousLocation(
+    studentId: string, 
+    newScanTime: Date, 
+    reason: string
+  ): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -1556,6 +1575,149 @@ export class DbStorage implements IStorage {
     combined.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime());
 
     return combined.slice(0, limit);
+  }
+
+  async getStudentActiveLocation(studentId: string): Promise<{
+    type: "bus" | "venue";
+    scanId: string;
+    scannedAt: Date;
+    vehicleId?: string;
+    driverId?: string;
+    shiftId?: string;
+    venueId?: string;
+    staffId?: string;
+  } | null> {
+    // Get the latest scan from each source
+    const lastBusScan = await db.query.qrScans.findFirst({
+      where: eq(qrScans.studentId, studentId),
+      orderBy: [desc(qrScans.scannedAt)],
+    });
+
+    const lastVenueScan = await db.query.venueScans.findFirst({
+      where: eq(venueScans.studentId, studentId),
+      orderBy: [desc(venueScans.scannedAt)],
+    });
+
+    // No scans at all
+    if (!lastBusScan && !lastVenueScan) {
+      return null;
+    }
+
+    // Find the ABSOLUTE latest scan across both sources
+    // This is the source of truth - if latest is Off/Out, student is NOT active anywhere
+    type ScanInfo = { 
+      source: "bus" | "venue"; 
+      scannedAt: Date; 
+      scanType: string;
+      busScan?: typeof lastBusScan;
+      venueScan?: typeof lastVenueScan;
+    };
+    
+    const scans: ScanInfo[] = [];
+    if (lastBusScan) {
+      scans.push({ 
+        source: "bus", 
+        scannedAt: lastBusScan.scannedAt, 
+        scanType: lastBusScan.scanType,
+        busScan: lastBusScan 
+      });
+    }
+    if (lastVenueScan) {
+      scans.push({ 
+        source: "venue", 
+        scannedAt: lastVenueScan.scannedAt, 
+        scanType: lastVenueScan.scanType,
+        venueScan: lastVenueScan 
+      });
+    }
+
+    // Sort by timestamp descending to get the absolute latest
+    scans.sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime());
+    const latestScan = scans[0];
+
+    // SIMPLE RULE: If the latest scan is a "release" type (Off/Out), student is NOT active
+    if (latestScan.source === "bus" && latestScan.scanType !== "On") {
+      return null; // Latest is Off - student is not at any location
+    }
+    if (latestScan.source === "venue" && latestScan.scanType !== "In") {
+      return null; // Latest is Out - student is not at any location
+    }
+
+    // Latest scan is an "active" type (On/In) - return that location
+    if (latestScan.source === "bus" && latestScan.busScan) {
+      return {
+        type: "bus",
+        scanId: latestScan.busScan.id,
+        scannedAt: latestScan.busScan.scannedAt,
+        vehicleId: latestScan.busScan.vehicleId ?? undefined,
+        driverId: latestScan.busScan.driverId ?? undefined,
+        shiftId: latestScan.busScan.shiftId ?? undefined,
+      };
+    }
+
+    if (latestScan.source === "venue" && latestScan.venueScan) {
+      return {
+        type: "venue",
+        scanId: latestScan.venueScan.id,
+        scannedAt: latestScan.venueScan.scannedAt,
+        venueId: latestScan.venueScan.venueId ?? undefined,
+        staffId: latestScan.venueScan.staffId ?? undefined,
+      };
+    }
+
+    return null;
+  }
+
+  async releaseStudentFromPreviousLocation(
+    studentId: string, 
+    newScanTime: Date, 
+    reason: string
+  ): Promise<void> {
+    const activeLocation = await this.getStudentActiveLocation(studentId);
+    
+    if (!activeLocation) {
+      return; // No active location, nothing to release
+    }
+
+    // Only release if the new scan is MORE RECENT than the active location
+    // This preserves the newer state when older offline scans arrive later
+    if (newScanTime <= activeLocation.scannedAt) {
+      console.log(`Skipping release: new scan (${newScanTime.toISOString()}) is not newer than active location (${activeLocation.scannedAt.toISOString()})`);
+      return;
+    }
+
+    // Create forced-off record slightly before the new scan time
+    const releaseTime = new Date(newScanTime.getTime() - 1000); // 1 second before
+
+    if (activeLocation.type === "bus") {
+      await db.insert(qrScans).values({
+        id: crypto.randomUUID(),
+        studentId,
+        driverId: activeLocation.driverId!,
+        vehicleId: activeLocation.vehicleId!,
+        shiftId: activeLocation.shiftId!,
+        scanType: "Off",
+        scannedAt: releaseTime,
+        location: "System auto-release",
+        forced: true,
+        forceReason: reason,
+        synced: true,
+      });
+    } else {
+      await db.insert(venueScans).values({
+        id: crypto.randomUUID(),
+        studentId,
+        venueId: activeLocation.venueId!,
+        staffId: activeLocation.staffId || null,
+        scanType: "Out",
+        scannedAt: releaseTime,
+        location: "System auto-release",
+        locationConfirmed: false,
+        forced: true,
+        forceReason: reason,
+        synced: true,
+      });
+    }
   }
 }
 

@@ -1213,6 +1213,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      // If checking in (In), release from any previous location first
+      if (scanType === "In") {
+        const scanTime = req.body.scannedAt ? new Date(req.body.scannedAt) : new Date();
+        await storage.releaseStudentFromPreviousLocation(
+          studentId, 
+          scanTime, 
+          "Auto-released: Student scanned at new location"
+        );
+      }
+
       const scan = await storage.createVenueScan({
         venueId,
         staffId,
@@ -1389,6 +1399,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "This QR code belongs to a student that no longer exists in the system. Please use an updated QR code.",
         });
         return;
+      }
+      
+      // If boarding (On), release from any previous location first
+      if (scanData.scanType === "On") {
+        const scanTime = req.body.scannedAt ? new Date(req.body.scannedAt) : new Date();
+        await storage.releaseStudentFromPreviousLocation(
+          scanData.studentId, 
+          scanTime, 
+          "Auto-released: Student scanned at new location"
+        );
       }
       
       const scan = await storage.createQRScan(scanData);
