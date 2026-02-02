@@ -1343,37 +1343,43 @@ export class DbStorage implements IStorage {
     const todayQRScans = await db.select().from(qrScans).where(gte(qrScans.scannedAt, today));
     const todayVenueScans = await db.select().from(venueScans).where(gte(venueScans.scannedAt, today));
     
+    const allQRScans = await db.select().from(qrScans).orderBy(desc(qrScans.scannedAt));
+    const allVenueScans = await db.select().from(venueScans).orderBy(desc(venueScans.scannedAt));
+    
     let studentsOnBuses = 0;
     let studentsAtVenues = 0;
 
     const studentIds = allStudents.map(s => s.id);
     
     const qrScansByStudent = new Map<string, { scanType: string; scannedAt: Date }>();
-    for (const scan of todayQRScans) {
-      const existing = qrScansByStudent.get(scan.studentId);
-      if (!existing || scan.scannedAt > existing.scannedAt) {
+    for (const scan of allQRScans) {
+      if (!qrScansByStudent.has(scan.studentId)) {
         qrScansByStudent.set(scan.studentId, { scanType: scan.scanType, scannedAt: scan.scannedAt });
       }
     }
 
     const venueScansByStudent = new Map<string, { scanType: string; scannedAt: Date }>();
-    for (const scan of todayVenueScans) {
-      const existing = venueScansByStudent.get(scan.studentId);
-      if (!existing || scan.scannedAt > existing.scannedAt) {
+    for (const scan of allVenueScans) {
+      if (!venueScansByStudent.has(scan.studentId)) {
         venueScansByStudent.set(scan.studentId, { scanType: scan.scanType, scannedAt: scan.scannedAt });
       }
     }
 
     for (const studentId of studentIds) {
       const latestQR = qrScansByStudent.get(studentId);
-      if (latestQR && latestQR.scanType === "Board") {
-        studentsOnBuses++;
-        continue;
+      const latestVenue = venueScansByStudent.get(studentId);
+      
+      if (latestQR && latestQR.scanType === "On") {
+        if (!latestVenue || latestQR.scannedAt > latestVenue.scannedAt) {
+          studentsOnBuses++;
+          continue;
+        }
       }
 
-      const latestVenue = venueScansByStudent.get(studentId);
       if (latestVenue && latestVenue.scanType === "In") {
-        studentsAtVenues++;
+        if (!latestQR || latestVenue.scannedAt > latestQR.scannedAt) {
+          studentsAtVenues++;
+        }
       }
     }
 
@@ -1399,9 +1405,6 @@ export class DbStorage implements IStorage {
       venueName?: string;
     };
   }>> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const activeStudents: Array<{
       student: Student;
       locationType: "bus" | "venue";
@@ -1418,8 +1421,7 @@ export class DbStorage implements IStorage {
 
     const allStudents = await db.select().from(students);
     
-    const todayQRScans = await db.query.qrScans.findMany({
-      where: gte(qrScans.scannedAt, today),
+    const allQRScans = await db.query.qrScans.findMany({
       with: {
         vehicle: true,
         shift: true,
@@ -1428,23 +1430,22 @@ export class DbStorage implements IStorage {
       orderBy: [desc(qrScans.scannedAt)],
     });
 
-    const todayVenueScans = await db.query.venueScans.findMany({
-      where: gte(venueScans.scannedAt, today),
+    const allVenueScans = await db.query.venueScans.findMany({
       with: {
         venue: true,
       },
       orderBy: [desc(venueScans.scannedAt)],
     });
 
-    const latestQRByStudent = new Map<string, typeof todayQRScans[0]>();
-    for (const scan of todayQRScans) {
+    const latestQRByStudent = new Map<string, typeof allQRScans[0]>();
+    for (const scan of allQRScans) {
       if (!latestQRByStudent.has(scan.studentId)) {
         latestQRByStudent.set(scan.studentId, scan);
       }
     }
 
-    const latestVenueByStudent = new Map<string, typeof todayVenueScans[0]>();
-    for (const scan of todayVenueScans) {
+    const latestVenueByStudent = new Map<string, typeof allVenueScans[0]>();
+    for (const scan of allVenueScans) {
       if (!latestVenueByStudent.has(scan.studentId)) {
         latestVenueByStudent.set(scan.studentId, scan);
       }
@@ -1452,35 +1453,38 @@ export class DbStorage implements IStorage {
 
     for (const student of allStudents) {
       const latestQRScan = latestQRByStudent.get(student.id);
-
-      if (latestQRScan && latestQRScan.scanType === "Board") {
-        activeStudents.push({
-          student,
-          locationType: "bus",
-          locationName: latestQRScan.vehicle?.busNumber || "Unknown Bus",
-          since: latestQRScan.scannedAt,
-          details: {
-            vehicleId: latestQRScan.vehicleId || undefined,
-            busNumber: latestQRScan.vehicle?.busNumber || undefined,
-            shiftTitle: latestQRScan.shift?.shiftTitle || undefined,
-            driverName: latestQRScan.driver?.driverName || undefined,
-          },
-        });
-        continue;
-      }
-
       const latestVenueScan = latestVenueByStudent.get(student.id);
 
+      if (latestQRScan && latestQRScan.scanType === "On") {
+        if (!latestVenueScan || latestQRScan.scannedAt > latestVenueScan.scannedAt) {
+          activeStudents.push({
+            student,
+            locationType: "bus",
+            locationName: latestQRScan.vehicle?.busNumber || "Unknown Bus",
+            since: latestQRScan.scannedAt,
+            details: {
+              vehicleId: latestQRScan.vehicleId || undefined,
+              busNumber: latestQRScan.vehicle?.busNumber || undefined,
+              shiftTitle: latestQRScan.shift?.shiftTitle || undefined,
+              driverName: latestQRScan.driver?.driverName || undefined,
+            },
+          });
+          continue;
+        }
+      }
+
       if (latestVenueScan && latestVenueScan.scanType === "In") {
-        activeStudents.push({
-          student,
-          locationType: "venue",
-          locationName: latestVenueScan.venue?.name || "Unknown Venue",
-          since: latestVenueScan.scannedAt,
-          details: {
-            venueName: latestVenueScan.venue?.name || undefined,
-          },
-        });
+        if (!latestQRScan || latestVenueScan.scannedAt > latestQRScan.scannedAt) {
+          activeStudents.push({
+            student,
+            locationType: "venue",
+            locationName: latestVenueScan.venue?.name || "Unknown Venue",
+            since: latestVenueScan.scannedAt,
+            details: {
+              venueName: latestVenueScan.venue?.name || undefined,
+            },
+          });
+        }
       }
     }
 
