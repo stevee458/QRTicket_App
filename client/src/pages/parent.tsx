@@ -336,9 +336,9 @@ export default function Parent() {
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Parent Portal Login</CardTitle>
+        <Card className="w-full max-w-md border-t-4 border-t-primary shadow-lg">
+          <CardHeader className="bg-primary/5">
+            <CardTitle className="text-2xl text-center text-primary">Parent Portal Login</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -385,11 +385,11 @@ export default function Parent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b">
+      <div className="border-b bg-primary/5">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold" data-testid="text-parent-dashboard-title">
+              <h1 className="text-2xl font-bold text-primary" data-testid="text-parent-dashboard-title">
                 Parent Portal
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -419,11 +419,11 @@ export default function Parent() {
           <TabsContent value="students" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               {students.map((student) => (
-                <Card key={student.id} data-testid={`card-student-${student.id}`}>
-                  <CardHeader>
+                <Card key={student.id} className="hover-elevate transition-colors border-l-4 border-l-primary/50 shadow-sm" data-testid={`card-student-${student.id}`}>
+                  <CardHeader className="bg-primary/5">
                     <CardTitle className="flex items-center justify-between">
-                      <span data-testid={`text-student-name-${student.id}`}>{student.name}</span>
-                      <Badge variant="secondary">{student.school}</Badge>
+                      <span className="text-primary" data-testid={`text-student-name-${student.id}`}>{student.name}</span>
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300">{student.school}</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -498,7 +498,7 @@ export default function Parent() {
             </div>
 
             {students.length === 0 && (
-              <Card>
+              <Card className="border-dashed border-2">
                 <CardContent className="py-8 text-center text-muted-foreground">
                   No students registered
                 </CardContent>
@@ -507,9 +507,12 @@ export default function Parent() {
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Trip History</CardTitle>
+            <Card className="border-t-4 border-t-purple-500 shadow-sm">
+              <CardHeader className="bg-purple-500/5">
+                <CardTitle className="flex items-center gap-2 text-purple-600">
+                  <Calendar className="h-5 w-5" />
+                  Trip History
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
