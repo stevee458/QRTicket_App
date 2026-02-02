@@ -103,6 +103,20 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
         console.warn("Scanner clear warning (safe to ignore):", err);
       }
 
+      // Explicitly stop all video tracks to ensure camera is released
+      try {
+        const videoElements = document.querySelectorAll('#venue-qr-reader video');
+        videoElements.forEach((video: any) => {
+          if (video.srcObject) {
+            const tracks = video.srcObject.getTracks();
+            tracks.forEach((track: MediaStreamTrack) => track.stop());
+            video.srcObject = null;
+          }
+        });
+      } catch (err) {
+        console.warn("Track stop warning (safe to ignore):", err);
+      }
+
       if (scannerRef.current === scannerToStop) {
         scannerRef.current = null;
       }
