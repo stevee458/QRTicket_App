@@ -991,9 +991,9 @@ export default function DriverPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle data-testid="text-driver-login-title">Driver Login</CardTitle>
+          <Card className="border-t-4 border-t-green-500 shadow-lg">
+            <CardHeader className="bg-green-500/5">
+              <CardTitle className="text-green-600" data-testid="text-driver-login-title">Driver Login</CardTitle>
               <CardDescription>Enter your credentials to access the driver portal</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1100,9 +1100,9 @@ export default function DriverPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 p-4 rounded-lg bg-green-500/5 border-l-4 border-l-green-500">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-driver-portal-title">
+            <h1 className="text-3xl font-bold text-green-600" data-testid="text-driver-portal-title">
               Driver Portal
             </h1>
             <p className="text-muted-foreground">
@@ -1168,9 +1168,9 @@ export default function DriverPage() {
 
         {/* Scan buttons */}
         <div className="grid gap-4 md:grid-cols-2 mb-6">
-          <Card className="hover-elevate cursor-pointer" onClick={() => handleScanButtonClick("Board")}>
+          <Card className="hover-elevate cursor-pointer border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10" onClick={() => handleScanButtonClick("Board")}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2" data-testid="button-scan-board">
+              <CardTitle className="flex items-center gap-2 text-green-600" data-testid="button-scan-board">
                 <Camera className="w-5 h-5" />
                 Scan to Board
               </CardTitle>
@@ -1178,9 +1178,9 @@ export default function DriverPage() {
             </CardHeader>
           </Card>
 
-          <Card className="hover-elevate cursor-pointer" onClick={() => handleScanButtonClick("Alight")}>
+          <Card className="hover-elevate cursor-pointer border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10" onClick={() => handleScanButtonClick("Alight")}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2" data-testid="button-scan-alight">
+              <CardTitle className="flex items-center gap-2 text-orange-600" data-testid="button-scan-alight">
                 <Camera className="w-5 h-5" />
                 Scan to Alight
               </CardTitle>

@@ -923,9 +923,9 @@ export default function VenuePage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle data-testid="text-venue-login-title">Venue Staff Login</CardTitle>
+          <Card className="border-t-4 border-t-blue-500 shadow-lg">
+            <CardHeader className="bg-blue-500/5">
+              <CardTitle className="text-blue-600" data-testid="text-venue-login-title">Venue Staff Login</CardTitle>
               <CardDescription>Enter your credentials to access the venue portal</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -969,9 +969,9 @@ export default function VenuePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 p-4 rounded-lg bg-blue-500/5 border-l-4 border-l-blue-500">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-venue-portal-title">
+            <h1 className="text-3xl font-bold text-blue-600" data-testid="text-venue-portal-title">
               Venue Portal
             </h1>
             <p className="text-muted-foreground">
@@ -1039,9 +1039,9 @@ export default function VenuePage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 mb-6">
-          <Card className="hover-elevate cursor-pointer" onClick={() => handleScanButtonClick("In")}>
+          <Card className="hover-elevate cursor-pointer border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10" onClick={() => handleScanButtonClick("In")}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2" data-testid="button-scan-in">
+              <CardTitle className="flex items-center gap-2 text-blue-600" data-testid="button-scan-in">
                 <Camera className="w-5 h-5" />
                 Scan In
               </CardTitle>
@@ -1049,9 +1049,9 @@ export default function VenuePage() {
             </CardHeader>
           </Card>
 
-          <Card className="hover-elevate cursor-pointer" onClick={() => handleScanButtonClick("Out")}>
+          <Card className="hover-elevate cursor-pointer border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10" onClick={() => handleScanButtonClick("Out")}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2" data-testid="button-scan-out">
+              <CardTitle className="flex items-center gap-2 text-orange-600" data-testid="button-scan-out">
                 <Camera className="w-5 h-5" />
                 Scan Out
               </CardTitle>
