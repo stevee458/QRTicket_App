@@ -175,6 +175,30 @@ export interface IStorage {
     venueName: string | null;
     scanTime: Date | null;
   } | null>;
+
+  getDashboardStats(): Promise<{
+    totalStudents: number;
+    totalParents: number;
+    studentsOnBuses: number;
+    studentsAtVenues: number;
+    todayScans: number;
+  }>;
+
+  getActiveStudents(): Promise<Array<{
+    student: Student;
+    locationType: "bus" | "venue";
+    locationName: string;
+    since: Date;
+    details?: {
+      vehicleId?: string;
+      busNumber?: string;
+      shiftTitle?: string;
+      driverName?: string;
+      venueName?: string;
+    };
+  }>>;
+
+  getRecentActivity(limit?: number): Promise<CombinedScan[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -1261,14 +1285,14 @@ export class DbStorage implements IStorage {
 
     const studentsAtVenue: Array<{ student: Student; scanTime: Date }> = [];
     
-    for (const [, data] of studentLatestScans) {
+    Array.from(studentLatestScans.values()).forEach((data) => {
       if (data.scanType === "In") {
         studentsAtVenue.push({
           student: data.student,
           scanTime: data.scanTime,
         });
       }
-    }
+    });
 
     return studentsAtVenue;
   }
@@ -1301,6 +1325,229 @@ export class DbStorage implements IStorage {
       venueName: latestScan.venue?.name || null,
       scanTime: latestScan.scannedAt,
     };
+  }
+
+  async getDashboardStats(): Promise<{
+    totalStudents: number;
+    totalParents: number;
+    studentsOnBuses: number;
+    studentsAtVenues: number;
+    todayScans: number;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const allStudents = await db.select().from(students);
+    const allParents = await db.select().from(parents);
+    
+    const todayQRScans = await db.select().from(qrScans).where(gte(qrScans.scannedAt, today));
+    const todayVenueScans = await db.select().from(venueScans).where(gte(venueScans.scannedAt, today));
+    
+    let studentsOnBuses = 0;
+    let studentsAtVenues = 0;
+
+    const studentIds = allStudents.map(s => s.id);
+    
+    const qrScansByStudent = new Map<string, { scanType: string; scannedAt: Date }>();
+    for (const scan of todayQRScans) {
+      const existing = qrScansByStudent.get(scan.studentId);
+      if (!existing || scan.scannedAt > existing.scannedAt) {
+        qrScansByStudent.set(scan.studentId, { scanType: scan.scanType, scannedAt: scan.scannedAt });
+      }
+    }
+
+    const venueScansByStudent = new Map<string, { scanType: string; scannedAt: Date }>();
+    for (const scan of todayVenueScans) {
+      const existing = venueScansByStudent.get(scan.studentId);
+      if (!existing || scan.scannedAt > existing.scannedAt) {
+        venueScansByStudent.set(scan.studentId, { scanType: scan.scanType, scannedAt: scan.scannedAt });
+      }
+    }
+
+    for (const studentId of studentIds) {
+      const latestQR = qrScansByStudent.get(studentId);
+      if (latestQR && latestQR.scanType === "Board") {
+        studentsOnBuses++;
+        continue;
+      }
+
+      const latestVenue = venueScansByStudent.get(studentId);
+      if (latestVenue && latestVenue.scanType === "In") {
+        studentsAtVenues++;
+      }
+    }
+
+    return {
+      totalStudents: allStudents.length,
+      totalParents: allParents.length,
+      studentsOnBuses,
+      studentsAtVenues,
+      todayScans: todayQRScans.length + todayVenueScans.length,
+    };
+  }
+
+  async getActiveStudents(): Promise<Array<{
+    student: Student;
+    locationType: "bus" | "venue";
+    locationName: string;
+    since: Date;
+    details?: {
+      vehicleId?: string;
+      busNumber?: string;
+      shiftTitle?: string;
+      driverName?: string;
+      venueName?: string;
+    };
+  }>> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeStudents: Array<{
+      student: Student;
+      locationType: "bus" | "venue";
+      locationName: string;
+      since: Date;
+      details?: {
+        vehicleId?: string;
+        busNumber?: string;
+        shiftTitle?: string;
+        driverName?: string;
+        venueName?: string;
+      };
+    }> = [];
+
+    const allStudents = await db.select().from(students);
+    
+    const todayQRScans = await db.query.qrScans.findMany({
+      where: gte(qrScans.scannedAt, today),
+      with: {
+        vehicle: true,
+        shift: true,
+        driver: true,
+      },
+      orderBy: [desc(qrScans.scannedAt)],
+    });
+
+    const todayVenueScans = await db.query.venueScans.findMany({
+      where: gte(venueScans.scannedAt, today),
+      with: {
+        venue: true,
+      },
+      orderBy: [desc(venueScans.scannedAt)],
+    });
+
+    const latestQRByStudent = new Map<string, typeof todayQRScans[0]>();
+    for (const scan of todayQRScans) {
+      if (!latestQRByStudent.has(scan.studentId)) {
+        latestQRByStudent.set(scan.studentId, scan);
+      }
+    }
+
+    const latestVenueByStudent = new Map<string, typeof todayVenueScans[0]>();
+    for (const scan of todayVenueScans) {
+      if (!latestVenueByStudent.has(scan.studentId)) {
+        latestVenueByStudent.set(scan.studentId, scan);
+      }
+    }
+
+    for (const student of allStudents) {
+      const latestQRScan = latestQRByStudent.get(student.id);
+
+      if (latestQRScan && latestQRScan.scanType === "Board") {
+        activeStudents.push({
+          student,
+          locationType: "bus",
+          locationName: latestQRScan.vehicle?.busNumber || "Unknown Bus",
+          since: latestQRScan.scannedAt,
+          details: {
+            vehicleId: latestQRScan.vehicleId || undefined,
+            busNumber: latestQRScan.vehicle?.busNumber || undefined,
+            shiftTitle: latestQRScan.shift?.shiftTitle || undefined,
+            driverName: latestQRScan.driver?.driverName || undefined,
+          },
+        });
+        continue;
+      }
+
+      const latestVenueScan = latestVenueByStudent.get(student.id);
+
+      if (latestVenueScan && latestVenueScan.scanType === "In") {
+        activeStudents.push({
+          student,
+          locationType: "venue",
+          locationName: latestVenueScan.venue?.name || "Unknown Venue",
+          since: latestVenueScan.scannedAt,
+          details: {
+            venueName: latestVenueScan.venue?.name || undefined,
+          },
+        });
+      }
+    }
+
+    return activeStudents;
+  }
+
+  async getRecentActivity(limit: number = 20): Promise<CombinedScan[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const recentQRScans = await db.query.qrScans.findMany({
+      where: gte(qrScans.scannedAt, today),
+      with: {
+        vehicle: true,
+        shift: true,
+        driver: true,
+        student: true,
+      },
+      orderBy: [desc(qrScans.scannedAt)],
+      limit: limit,
+    });
+
+    const recentVenueScans = await db.query.venueScans.findMany({
+      where: gte(venueScans.scannedAt, today),
+      with: {
+        venue: true,
+        staff: true,
+        student: true,
+      },
+      orderBy: [desc(venueScans.scannedAt)],
+      limit: limit,
+    });
+
+    const combined: CombinedScan[] = [];
+
+    for (const scan of recentQRScans) {
+      combined.push({
+        id: scan.id,
+        studentId: scan.studentId,
+        scanType: scan.scanType,
+        scannedAt: scan.scannedAt,
+        location: scan.location,
+        forced: scan.forced,
+        source: "vehicle",
+        driver: scan.driver ? { id: scan.driver.id, name: scan.driver.driverName } : null,
+        vehicle: scan.vehicle ? { id: scan.vehicle.id, busNumber: scan.vehicle.busNumber } : null,
+        shift: scan.shift ? { id: scan.shift.id, title: scan.shift.shiftTitle } : null,
+      });
+    }
+
+    for (const scan of recentVenueScans) {
+      combined.push({
+        id: scan.id,
+        studentId: scan.studentId,
+        scanType: scan.scanType === "In" ? "Check In" : "Check Out",
+        scannedAt: scan.scannedAt,
+        location: scan.location,
+        forced: scan.forced,
+        source: "venue",
+        venue: scan.venue ? { id: scan.venue.id, name: scan.venue.name } : null,
+        staff: scan.staff ? { id: scan.staff.id, name: scan.staff.name } : null,
+      });
+    }
+
+    combined.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime());
+
+    return combined.slice(0, limit);
   }
 }
 

@@ -1780,6 +1780,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/dashboard/stats", async (req, res) => {
+    try {
+      const adminId = req.session.adminId;
+      if (!adminId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const stats = await storage.getDashboardStats();
+      res.json({ success: true, data: stats });
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  app.get("/api/admin/dashboard/active-students", async (req, res) => {
+    try {
+      const adminId = req.session.adminId;
+      if (!adminId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const activeStudents = await storage.getActiveStudents();
+      res.json({ success: true, data: activeStudents });
+    } catch (error) {
+      console.error("Active students error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch active students" });
+    }
+  });
+
+  app.get("/api/admin/dashboard/recent-activity", async (req, res) => {
+    try {
+      const adminId = req.session.adminId;
+      if (!adminId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activity = await storage.getRecentActivity(limit);
+      res.json({ success: true, data: activity });
+    } catch (error) {
+      console.error("Recent activity error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch recent activity" });
+    }
+  });
+
+  app.get("/api/admin/student/:studentId/scans", async (req, res) => {
+    try {
+      const adminId = req.session.adminId;
+      if (!adminId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const { studentId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+
+      const scans = await storage.getStudentAllScans(studentId, start, end);
+      res.json({ success: true, data: scans });
+    } catch (error) {
+      console.error("Student scans error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch student scans" });
+    }
+  });
+
   await storage.seedSuperAdmin();
 
   registerObjectStorageRoutes(app);

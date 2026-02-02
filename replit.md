@@ -209,6 +209,25 @@ The application uses a relational schema with two main tables:
 - **Real-time Status**: Connection indicator, pending scans counter, sync timestamps
 - **Onboard Tracking**: View currently boarded students
 
+### Admin Dashboard
+- **Stats Cards**: Real-time counts displayed at top of admin portal
+  - Total students and parents registered
+  - Students currently on buses (green indicator)
+  - Students currently at venues (blue indicator)
+  - Today's total scans
+- **Student Search**: Quick search with autocomplete
+  - Type student name to find instantly
+  - Shows student details, parent info, and current status
+- **Trip History**: View any student's trip history
+  - Same date filtering as Parent Portal (today, this week, last week, custom)
+  - Shows both bus and venue activity
+- **Currently Active Panel**: Real-time list of students on buses or at venues
+  - Shows location name, time since boarding/check-in
+  - Auto-refreshes every 15 seconds
+- **Recent Activity Feed**: Latest scans across all drivers and venues
+  - Shows scan type, location, and timestamp
+  - Auto-refreshes every 10 seconds
+
 ### Scan Data Capture
 Each QR scan records:
 - Date and time (ISO string)
