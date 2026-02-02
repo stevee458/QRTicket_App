@@ -106,10 +106,7 @@ export default function Admin() {
 
   const forceReleaseMutation = useMutation({
     mutationFn: async (studentId: string) => {
-      return apiRequest(`/api/admin/force-release/${studentId}`, {
-        method: "POST",
-        body: JSON.stringify({ reason: "Admin force release" }),
-      });
+      return apiRequest("POST", `/api/admin/force-release/${studentId}`, { reason: "Admin force release" });
     },
     onSuccess: () => {
       toast({
