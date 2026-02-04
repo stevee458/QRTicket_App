@@ -221,6 +221,7 @@ function DriverPageContent() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [lastScanResult, setLastScanResult] = useState<string | null>(null);
   const [qrInput, setQrInput] = useState("");
+  const qrInputRef = useRef(qrInput);
   const [showOnboardList, setShowOnboardList] = useState(false);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   
@@ -425,6 +426,11 @@ function DriverPageContent() {
 
     return () => clearTimeout(timer);
   }, [qrInput, isManualEntryOpen]);
+
+  // Keep qrInputRef in sync for stable callback references
+  useEffect(() => {
+    qrInputRef.current = qrInput;
+  }, [qrInput]);
 
   // Auto-focus manual entry input when opened
   useEffect(() => {
@@ -649,7 +655,7 @@ function DriverPageContent() {
       dataToProcess = JSON.stringify({ studentId, name: studentName });
     } else {
       // Process as string (QR code or manual entry)
-      dataToProcess = scannedData || qrInput;
+      dataToProcess = scannedData || qrInputRef.current;
       if (!dataToProcess) return;
 
       try {
@@ -856,7 +862,7 @@ function DriverPageContent() {
       setIsCameraActive(false);
       setLastScanResult("❌ Invalid QR code – please rescan");
     }
-  }, [qrInput, session, scanMode, toast, isOnline, refetchOnboard]);
+  }, [session, scanMode, toast, isOnline, refetchOnboard]);
 
   // Memoized onScan callback to prevent QRScanner from recreating on every render
   const handleScannerScan = useCallback(async (qrData: string) => {

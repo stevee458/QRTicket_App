@@ -214,6 +214,7 @@ function VenuePageContent() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [lastScanResult, setLastScanResult] = useState<string | null>(null);
   const [qrInput, setQrInput] = useState("");
+  const qrInputRef = useRef(qrInput);
   const [showAtVenueList, setShowAtVenueList] = useState(false);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   
@@ -422,6 +423,11 @@ function VenuePageContent() {
 
     return () => clearTimeout(timer);
   }, [qrInput, isManualEntryOpen]);
+
+  // Keep qrInputRef in sync for stable callback references
+  useEffect(() => {
+    qrInputRef.current = qrInput;
+  }, [qrInput]);
 
   useEffect(() => {
     if (isManualEntryOpen && manualEntryInputRef.current) {
@@ -721,7 +727,7 @@ function VenuePageContent() {
       studentName = scannedData.studentName;
       dataToProcess = JSON.stringify({ studentId, name: studentName });
     } else {
-      dataToProcess = scannedData || qrInput;
+      dataToProcess = scannedData || qrInputRef.current;
       if (!dataToProcess) return;
 
       try {
@@ -791,7 +797,7 @@ function VenuePageContent() {
       setIsCameraActive(false);
       setLastScanResult("Invalid QR code – please rescan");
     }
-  }, [qrInput, session, scanMode, toast, processVenueScan]);
+  }, [session, scanMode, toast, processVenueScan]);
 
   const handleForceScan = async () => {
     if (!forceScanData) return;
