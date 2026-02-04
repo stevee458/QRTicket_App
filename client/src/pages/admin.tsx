@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Bus, MapPin, Activity, Search, ArrowRight, Clock, User, Flag, UserX } from "lucide-react";
+import { Users, Bus, MapPin, Activity, Search, ArrowRight, Clock, User, Flag, UserX, Eye, ShieldAlert } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -101,6 +101,9 @@ export default function Admin() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [studentToRelease, setStudentToRelease] = useState<ActiveStudent | null>(null);
+  const [showSpecialNeedsWarning, setShowSpecialNeedsWarning] = useState(false);
+  const [specialNeedsData, setSpecialNeedsData] = useState<{ studentName: string; specialNeeds: string | null } | null>(null);
+  const [loadingSpecialNeeds, setLoadingSpecialNeeds] = useState(false);
   
   const { toast } = useToast();
 
@@ -126,6 +129,44 @@ export default function Admin() {
       });
     },
   });
+
+  const handleViewSpecialNeeds = async () => {
+    if (!selectedStudent) return;
+    
+    setLoadingSpecialNeeds(true);
+    try {
+      const response = await fetch(`/api/students/${selectedStudent.student.id}/special-needs/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          viewerName: "Admin",
+          viewerRole: "admin",
+          viewerContext: "Admin Portal - Student Search",
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSpecialNeedsData(data.data);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to retrieve special needs information",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to retrieve special needs information",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingSpecialNeeds(false);
+      setShowSpecialNeedsWarning(false);
+    }
+  };
 
   const { data: statsData, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/admin/dashboard/stats"],
@@ -206,6 +247,7 @@ export default function Admin() {
 
   const handleStudentSelect = (result: { student: Student; parent: Parent }) => {
     setSelectedStudent(result);
+    setSpecialNeedsData(null);
     setSearchTerm("");
   };
 
@@ -353,6 +395,45 @@ export default function Admin() {
                   <div>
                     <StudentStatusIndicator studentId={selectedStudent.student.id} />
                   </div>
+                </div>
+
+                <div className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-600" />
+                      <span className="font-medium text-sm">Special Needs Information</span>
+                    </div>
+                    {specialNeedsData ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSpecialNeedsData(null)}
+                        data-testid="button-hide-special-needs"
+                      >
+                        Hide
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSpecialNeedsWarning(true)}
+                        disabled={loadingSpecialNeeds}
+                        data-testid="button-view-special-needs"
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        {loadingSpecialNeeds ? "Loading..." : "View"}
+                      </Button>
+                    )}
+                  </div>
+                  {specialNeedsData && (
+                    <div className="mt-3 p-3 bg-muted/50 rounded text-sm">
+                      {specialNeedsData.specialNeeds ? (
+                        <p>{specialNeedsData.specialNeeds}</p>
+                      ) : (
+                        <p className="text-muted-foreground italic">No special needs information recorded</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t pt-4">
@@ -604,6 +685,37 @@ export default function Admin() {
               data-testid="button-confirm-release"
             >
               {forceReleaseMutation.isPending ? "Releasing..." : "Force Release"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showSpecialNeedsWarning} onOpenChange={setShowSpecialNeedsWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-600" />
+              Privacy Notice
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 text-left">
+              <p>
+                You are about to view sensitive special needs information for{" "}
+                <strong>{selectedStudent?.student.name}</strong>.
+              </p>
+              <p>
+                This access will be logged and the student's parent/guardian will be notified.
+                Please only view this information if it is necessary for the student's care and safety.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-special-needs">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleViewSpecialNeeds}
+              disabled={loadingSpecialNeeds}
+              data-testid="button-confirm-special-needs"
+            >
+              {loadingSpecialNeeds ? "Loading..." : "I Understand, View Information"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
