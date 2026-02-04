@@ -15,6 +15,7 @@ import Parent from "@/pages/parent";
 import Registration from "@/pages/registration";
 import RegisterTransport from "@/pages/register-transport";
 import RegisterVenue from "@/pages/register-venue";
+import ManageVenues from "@/pages/manage-venues";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -44,6 +45,11 @@ function Router() {
       <Route path="/admin/register-venue">
         <AdminAuthGuard>
           <RegisterVenue />
+        </AdminAuthGuard>
+      </Route>
+      <Route path="/admin/manage-venues">
+        <AdminAuthGuard>
+          <ManageVenues />
         </AdminAuthGuard>
       </Route>
       <Route path="/admin/search">

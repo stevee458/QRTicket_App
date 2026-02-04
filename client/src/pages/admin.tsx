@@ -652,6 +652,13 @@ export default function Admin() {
                 </div>
               </Link>
 
+              <Link href="/admin/manage-venues">
+                <div className="p-4 border rounded-lg hover-elevate cursor-pointer flex items-center justify-between">
+                  <span>Manage Venues & Staff</span>
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </Link>
+
               <Link href="/admin/search">
                 <div className="p-4 border rounded-lg hover-elevate cursor-pointer flex items-center justify-between">
                   <span>Search & Edit</span>
