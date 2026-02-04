@@ -1979,6 +1979,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Special needs access endpoints
+  app.post("/api/students/:studentId/special-needs/view", async (req, res) => {
+    try {
+      const { studentId } = req.params;
+      const { viewerName, viewerRole, viewerContext } = req.body;
+
+      if (!viewerName || !viewerRole) {
+        res.status(400).json({
+          success: false,
+          error: "Viewer name and role are required",
+        });
+        return;
+      }
+
+      const studentData = await storage.getStudentSpecialNeeds(studentId);
+      
+      if (!studentData) {
+        res.status(404).json({
+          success: false,
+          error: "Student not found",
+        });
+        return;
+      }
+
+      await storage.logSpecialNeedsAccess({
+        studentId,
+        viewerName,
+        viewerRole,
+        viewerContext: viewerContext || null,
+      });
+
+      res.json({
+        success: true,
+        data: studentData,
+      });
+    } catch (error) {
+      console.error("Special needs view error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to retrieve special needs",
+      });
+    }
+  });
+
+  app.get("/api/parent/access-logs", async (req, res) => {
+    try {
+      const parentId = req.session.parentId;
+      if (!parentId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const logs = await storage.getSpecialNeedsAccessLogs(parentId);
+      res.json({ success: true, data: logs });
+    } catch (error) {
+      console.error("Get access logs error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch access logs" });
+    }
+  });
+
+  app.get("/api/parent/access-logs/unacknowledged-count", async (req, res) => {
+    try {
+      const parentId = req.session.parentId;
+      if (!parentId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const count = await storage.getUnacknowledgedAccessCount(parentId);
+      res.json({ success: true, data: { count } });
+    } catch (error) {
+      console.error("Get unacknowledged count error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch count" });
+    }
+  });
+
+  app.post("/api/parent/access-logs/acknowledge", async (req, res) => {
+    try {
+      const parentId = req.session.parentId;
+      if (!parentId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const { logIds } = req.body;
+      if (!Array.isArray(logIds)) {
+        res.status(400).json({ success: false, error: "logIds must be an array" });
+        return;
+      }
+
+      await storage.acknowledgeSpecialNeedsAccess(logIds);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Acknowledge access logs error:", error);
+      res.status(500).json({ success: false, error: "Failed to acknowledge logs" });
+    }
+  });
+
   await storage.seedSuperAdmin();
 
   registerObjectStorageRoutes(app);
