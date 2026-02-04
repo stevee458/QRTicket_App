@@ -651,9 +651,25 @@ function VenuePageContent() {
         refetchAtVenue();
       } catch (error: any) {
         // Check if it's a "student not found" error - don't queue these
-        const errorData = error?.error || error?.message || "";
-        const isStudentNotFound = errorData === "STUDENT_NOT_FOUND" || 
-          (typeof errorData === "string" && errorData.toLowerCase().includes("student not found"));
+        // Error format from apiRequest: "404: {\"success\":false,\"error\":\"STUDENT_NOT_FOUND\"}"
+        let isStudentNotFound = false;
+        const errorMessage = error?.message || "";
+        
+        // Try to extract JSON from error message (format: "STATUS: JSON")
+        const jsonMatch = errorMessage.match(/^\d+:\s*(.+)$/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[1]);
+            isStudentNotFound = parsed.error === "STUDENT_NOT_FOUND";
+          } catch {
+            // Not valid JSON, check message directly
+            isStudentNotFound = errorMessage.toLowerCase().includes("student_not_found") ||
+              errorMessage.toLowerCase().includes("student not found");
+          }
+        } else {
+          isStudentNotFound = errorMessage.toLowerCase().includes("student_not_found") ||
+            errorMessage.toLowerCase().includes("student not found");
+        }
         
         if (isStudentNotFound) {
           // Student doesn't exist - show error, don't queue
