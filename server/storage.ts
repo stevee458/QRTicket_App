@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, vehicleDocuments, venues, venueStaff, venueScans, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin, type InsertVehicleDocument, type VehicleDocument, type InsertVenue, type Venue, type InsertVenueStaff, type VenueStaff, type InsertVenueScan, type VenueScan } from "@shared/schema";
-import { eq, ilike, desc, and, gte, lte } from "drizzle-orm";
+import { parents, students, qrCodeHistory, qrScans, vehicles, shifts, drivers, admins, vehicleDocuments, venues, venueStaff, venueScans, specialNeedsAccessLog, type InsertParent, type Parent, type InsertStudent, type Student, type QRCodeHistory, type InsertQRCodeHistory, type InsertQRScan, type QRScan, type InsertVehicle, type Vehicle, type InsertShift, type Shift, type InsertDriver, type Driver, type InsertAdmin, type Admin, type InsertVehicleDocument, type VehicleDocument, type InsertVenue, type Venue, type InsertVenueStaff, type VenueStaff, type InsertVenueScan, type VenueScan, type InsertSpecialNeedsAccessLog, type SpecialNeedsAccessLog } from "@shared/schema";
+import { eq, ilike, desc, and, gte, lte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export type StudentStatus = "Not Boarded" | "Boarded" | "Alighted";
@@ -218,6 +218,29 @@ export interface IStorage {
     newScanTime: Date, 
     reason: string
   ): Promise<void>;
+  
+  // Special needs access logging
+  logSpecialNeedsAccess(data: InsertSpecialNeedsAccessLog): Promise<SpecialNeedsAccessLog>;
+  
+  getStudentSpecialNeeds(studentId: string): Promise<{ 
+    studentName: string; 
+    specialNeeds: string | null;
+  } | null>;
+  
+  getSpecialNeedsAccessLogs(parentId: string): Promise<Array<{
+    id: string;
+    studentId: string;
+    studentName: string;
+    viewerName: string;
+    viewerRole: string;
+    viewerContext: string | null;
+    viewedAt: Date;
+    acknowledged: boolean;
+  }>>;
+  
+  acknowledgeSpecialNeedsAccess(logIds: string[]): Promise<void>;
+  
+  getUnacknowledgedAccessCount(parentId: string): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -1718,6 +1741,93 @@ export class DbStorage implements IStorage {
         synced: true,
       });
     }
+  }
+
+  async logSpecialNeedsAccess(data: InsertSpecialNeedsAccessLog): Promise<SpecialNeedsAccessLog> {
+    const [log] = await db.insert(specialNeedsAccessLog).values(data).returning();
+    return log;
+  }
+
+  async getStudentSpecialNeeds(studentId: string): Promise<{ 
+    studentName: string; 
+    specialNeeds: string | null;
+  } | null> {
+    const student = await db.query.students.findFirst({
+      where: eq(students.id, studentId),
+    });
+    
+    if (!student) return null;
+    
+    return {
+      studentName: student.name,
+      specialNeeds: student.specialNeeds,
+    };
+  }
+
+  async getSpecialNeedsAccessLogs(parentId: string): Promise<Array<{
+    id: string;
+    studentId: string;
+    studentName: string;
+    viewerName: string;
+    viewerRole: string;
+    viewerContext: string | null;
+    viewedAt: Date;
+    acknowledged: boolean;
+  }>> {
+    const parentStudents = await db.query.students.findMany({
+      where: eq(students.parentId, parentId),
+    });
+    
+    if (parentStudents.length === 0) return [];
+    
+    const studentIds = parentStudents.map(s => s.id);
+    const studentMap = new Map(parentStudents.map(s => [s.id, s.name]));
+    
+    const logs = await db.query.specialNeedsAccessLog.findMany({
+      where: inArray(specialNeedsAccessLog.studentId, studentIds),
+      orderBy: [desc(specialNeedsAccessLog.viewedAt)],
+    });
+    
+    return logs.map(log => ({
+      id: log.id,
+      studentId: log.studentId,
+      studentName: studentMap.get(log.studentId) || "Unknown",
+      viewerName: log.viewerName,
+      viewerRole: log.viewerRole,
+      viewerContext: log.viewerContext,
+      viewedAt: log.viewedAt,
+      acknowledged: log.acknowledged,
+    }));
+  }
+
+  async acknowledgeSpecialNeedsAccess(logIds: string[]): Promise<void> {
+    if (logIds.length === 0) return;
+    
+    await db.update(specialNeedsAccessLog)
+      .set({ 
+        acknowledged: true, 
+        acknowledgedAt: new Date() 
+      })
+      .where(inArray(specialNeedsAccessLog.id, logIds));
+  }
+
+  async getUnacknowledgedAccessCount(parentId: string): Promise<number> {
+    const parentStudents = await db.query.students.findMany({
+      where: eq(students.parentId, parentId),
+    });
+    
+    if (parentStudents.length === 0) return 0;
+    
+    const studentIds = parentStudents.map(s => s.id);
+    
+    const logs = await db.query.specialNeedsAccessLog.findMany({
+      where: and(
+        inArray(specialNeedsAccessLog.studentId, studentIds),
+        eq(specialNeedsAccessLog.acknowledged, false)
+      ),
+    });
+    
+    return logs.length;
   }
 }
 

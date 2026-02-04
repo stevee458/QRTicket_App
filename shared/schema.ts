@@ -132,6 +132,17 @@ export const venueScans = pgTable("venue_scans", {
   scannedAt: timestamp("scanned_at").defaultNow().notNull(),
 });
 
+export const specialNeedsAccessLog = pgTable("special_needs_access_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => students.id, { onDelete: 'cascade' }),
+  viewerName: text("viewer_name").notNull(),
+  viewerRole: text("viewer_role").notNull(),
+  viewerContext: text("viewer_context"),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+  acknowledged: boolean("acknowledged").notNull().default(false),
+  acknowledgedAt: timestamp("acknowledged_at"),
+});
+
 export const parentsRelations = relations(parents, ({ many }) => ({
   students: many(students),
 }));
@@ -219,6 +230,13 @@ export const venueScansRelations = relations(venueScans, ({ one }) => ({
   }),
 }));
 
+export const specialNeedsAccessLogRelations = relations(specialNeedsAccessLog, ({ one }) => ({
+  student: one(students, {
+    fields: [specialNeedsAccessLog.studentId],
+    references: [students.id],
+  }),
+}));
+
 export const insertParentSchema = createInsertSchema(parents).omit({
   id: true,
   createdAt: true,
@@ -280,6 +298,13 @@ export const insertVenueScanSchema = createInsertSchema(venueScans).omit({
   scannedAt: true,
 });
 
+export const insertSpecialNeedsAccessLogSchema = createInsertSchema(specialNeedsAccessLog).omit({
+  id: true,
+  viewedAt: true,
+  acknowledged: true,
+  acknowledgedAt: true,
+});
+
 export type InsertParent = z.infer<typeof insertParentSchema>;
 export type Parent = typeof parents.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -304,3 +329,5 @@ export type InsertVenueStaff = z.infer<typeof insertVenueStaffSchema>;
 export type VenueStaff = typeof venueStaff.$inferSelect;
 export type InsertVenueScan = z.infer<typeof insertVenueScanSchema>;
 export type VenueScan = typeof venueScans.$inferSelect;
+export type InsertSpecialNeedsAccessLog = z.infer<typeof insertSpecialNeedsAccessLogSchema>;
+export type SpecialNeedsAccessLog = typeof specialNeedsAccessLog.$inferSelect;
