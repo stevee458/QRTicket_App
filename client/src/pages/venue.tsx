@@ -15,7 +15,8 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Html5Qrcode } from "html5-qrcode";
+// Html5Qrcode is dynamically imported to prevent crashes on devices without camera
+type Html5QrcodeType = import("html5-qrcode").Html5Qrcode;
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface VenueStaff {
@@ -74,7 +75,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
   const processingRef = useRef(false);
   const hasScannedRef = useRef(false);
   const stopPromiseRef = useRef<Promise<void> | null>(null);
@@ -140,11 +141,15 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
     const startScanner = async () => {
       await safeStopScanner();
       
+      // Dynamically import and create new scanner instance
+      let Html5Qrcode: typeof import("html5-qrcode").Html5Qrcode;
       try {
+        const module = await import("html5-qrcode");
+        Html5Qrcode = module.Html5Qrcode;
         scannerRef.current = new Html5Qrcode(scannerId);
       } catch (err) {
         console.error("Error creating scanner instance:", err);
-        onError("Failed to initialize camera.");
+        onError("Camera not available on this device.");
         return;
       }
 
@@ -289,50 +294,69 @@ function VenuePageContent() {
   }, []);
 
   useEffect(() => {
-    if (!isLoggedIn || !("geolocation" in navigator)) {
+    if (!isLoggedIn) {
       return;
     }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const locationObj = { lat: latitude, lng: longitude };
-        setCurrentLocation(locationObj);
-        currentLocationRef.current = locationObj;
-        setCurrentLocationString(`GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-        setGpsPermissionGranted(true);
-        
-        if (session?.venue && session.venue.locationLat && session.venue.locationLng) {
-          const venueLat = typeof session.venue.locationLat === 'string' 
-            ? parseFloat(session.venue.locationLat) 
-            : session.venue.locationLat;
-          const venueLng = typeof session.venue.locationLng === 'string' 
-            ? parseFloat(session.venue.locationLng) 
-            : session.venue.locationLng;
+    // Check if geolocation is available
+    if (!navigator.geolocation) {
+      console.warn("Geolocation API not available");
+      setCurrentLocationString("GPS: Unavailable");
+      setGpsPermissionGranted(false);
+      return;
+    }
+
+    // Wrap in try/catch to handle any errors during watchPosition call
+    try {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const locationObj = { lat: latitude, lng: longitude };
+          setCurrentLocation(locationObj);
+          currentLocationRef.current = locationObj;
+          setCurrentLocationString(`GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          setGpsPermissionGranted(true);
           
-          if (!isNaN(venueLat) && !isNaN(venueLng)) {
-            const distance = calculateDistance(latitude, longitude, venueLat, venueLng);
-            setLocationConfirmed(distance <= 250);
+          if (session?.venue && session.venue.locationLat && session.venue.locationLng) {
+            const venueLat = typeof session.venue.locationLat === 'string' 
+              ? parseFloat(session.venue.locationLat) 
+              : session.venue.locationLat;
+            const venueLng = typeof session.venue.locationLng === 'string' 
+              ? parseFloat(session.venue.locationLng) 
+              : session.venue.locationLng;
+            
+            if (!isNaN(venueLat) && !isNaN(venueLng)) {
+              const distance = calculateDistance(latitude, longitude, venueLat, venueLng);
+              setLocationConfirmed(distance <= 250);
+            }
           }
+        },
+        (error) => {
+          console.error("GPS error:", error);
+          setCurrentLocationString("GPS: Unavailable");
+          setGpsPermissionGranted(false);
+          setShowGpsWarning(true);
+          setLocationConfirmed(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000,
         }
-      },
-      (error) => {
-        console.error("GPS error:", error);
-        setCurrentLocationString("GPS: Unavailable");
-        setGpsPermissionGranted(false);
-        setShowGpsWarning(true);
-        setLocationConfirmed(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000,
-      }
-    );
+      );
+    } catch (error) {
+      console.error("Error initializing geolocation:", error);
+      setCurrentLocationString("GPS: Unavailable");
+      setGpsPermissionGranted(false);
+    }
 
     return () => {
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        try {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+        } catch (e) {
+          console.warn("Error clearing geolocation watch:", e);
+        }
         watchIdRef.current = null;
       }
     };

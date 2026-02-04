@@ -15,7 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Html5Qrcode } from "html5-qrcode";
+// Html5Qrcode is dynamically imported to prevent crashes on devices without camera
+type Html5QrcodeType = import("html5-qrcode").Html5Qrcode;
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface Driver {
@@ -71,7 +72,7 @@ interface QRScannerProps {
 }
 
 function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
   const processingRef = useRef(false);
   const hasScannedRef = useRef(false);
   const stopPromiseRef = useRef<Promise<void> | null>(null);
@@ -133,12 +134,15 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
     const startScanner = async () => {
       await safeStopScanner();
       
-      // Create new scanner instance
+      // Dynamically import and create new scanner instance
+      let Html5Qrcode: typeof import("html5-qrcode").Html5Qrcode;
       try {
+        const module = await import("html5-qrcode");
+        Html5Qrcode = module.Html5Qrcode;
         scannerRef.current = new Html5Qrcode(scannerId);
       } catch (err) {
         console.error("Error creating scanner instance:", err);
-        onError("Failed to initialize camera.");
+        onError("Camera not available on this device.");
         return;
       }
 
@@ -298,37 +302,57 @@ function DriverPageContent() {
 
   // GPS tracking - request permission once and continuously track location
   useEffect(() => {
-    if (!isLoggedIn || !("geolocation" in navigator)) {
+    if (!isLoggedIn) {
       return;
     }
 
-    // Request permission and start watching position
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const locationString = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-        setCurrentLocation(locationString);
-        currentLocationRef.current = locationString;
-        setGpsPermissionGranted(true);
-      },
-      (error) => {
-        console.error("GPS error:", error);
-        setCurrentLocation("GPS: Unavailable");
-        currentLocationRef.current = "GPS: Unavailable";
-        setGpsPermissionGranted(false);
-        setShowGpsWarning(true);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000, // Cache location for 30 seconds
-      }
-    );
+    // Check if geolocation is available
+    if (!navigator.geolocation) {
+      console.warn("Geolocation API not available");
+      setCurrentLocation("GPS: Unavailable");
+      currentLocationRef.current = "GPS: Unavailable";
+      setGpsPermissionGranted(false);
+      return;
+    }
+
+    // Wrap in try/catch to handle any errors during watchPosition call
+    try {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const locationString = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          setCurrentLocation(locationString);
+          currentLocationRef.current = locationString;
+          setGpsPermissionGranted(true);
+        },
+        (error) => {
+          console.error("GPS error:", error);
+          setCurrentLocation("GPS: Unavailable");
+          currentLocationRef.current = "GPS: Unavailable";
+          setGpsPermissionGranted(false);
+          setShowGpsWarning(true);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000, // Cache location for 30 seconds
+        }
+      );
+    } catch (error) {
+      console.error("Error initializing geolocation:", error);
+      setCurrentLocation("GPS: Unavailable");
+      currentLocationRef.current = "GPS: Unavailable";
+      setGpsPermissionGranted(false);
+    }
 
     // Cleanup on unmount
     return () => {
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        try {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+        } catch (e) {
+          console.warn("Error clearing geolocation watch:", e);
+        }
         watchIdRef.current = null;
       }
     };
