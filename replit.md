@@ -10,6 +10,14 @@ The system is built as a full-stack web application with a React frontend, Expre
 
 Preferred communication style: Simple, everyday language.
 
+## Debugging Tips
+
+**Replit Preview vs Separate Browser:**
+- The Replit preview runs in an embedded iframe with restricted permissions
+- Camera, microphone, and GPS permissions may not work correctly in the preview
+- **Always test permission-dependent features (camera scanning, GPS tracking) in a separate browser window**
+- If something permission-related isn't working in preview, suggest opening the app URL in a new browser tab before extensive debugging
+
 ## System Architecture
 
 ### Frontend Architecture
