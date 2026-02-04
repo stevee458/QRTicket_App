@@ -19,14 +19,6 @@ export function InstallPrompt() {
       return;
     }
 
-    const dismissed = localStorage.getItem("pwa-install-dismissed");
-    if (dismissed) {
-      const dismissedTime = parseInt(dismissed, 10);
-      if (Date.now() - dismissedTime < 7 * 24 * 60 * 60 * 1000) {
-        return;
-      }
-    }
-
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -55,7 +47,6 @@ export function InstallPrompt() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem("pwa-install-dismissed", Date.now().toString());
     setShowPrompt(false);
   };
 
