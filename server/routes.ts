@@ -1710,6 +1710,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Special Needs Access Logs - MUST be before /api/parent/:id to avoid route conflict
+  app.get("/api/parent/access-logs", async (req, res) => {
+    try {
+      const parentId = req.session.parentId;
+      if (!parentId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const logs = await storage.getSpecialNeedsAccessLogs(parentId);
+      res.json({ success: true, data: logs });
+    } catch (error) {
+      console.error("Get access logs error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch access logs" });
+    }
+  });
+
+  app.get("/api/parent/access-logs/unacknowledged-count", async (req, res) => {
+    try {
+      const parentId = req.session.parentId;
+      if (!parentId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const count = await storage.getUnacknowledgedAccessCount(parentId);
+      res.json({ success: true, data: { count } });
+    } catch (error) {
+      console.error("Get unacknowledged count error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch count" });
+    }
+  });
+
+  app.post("/api/parent/access-logs/acknowledge", async (req, res) => {
+    try {
+      const parentId = req.session.parentId;
+      if (!parentId) {
+        res.status(401).json({ success: false, error: "Not authenticated" });
+        return;
+      }
+
+      const { logIds } = req.body;
+      if (!Array.isArray(logIds)) {
+        res.status(400).json({ success: false, error: "logIds must be an array" });
+        return;
+      }
+
+      await storage.acknowledgeSpecialNeedsAccess(logIds);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Acknowledge access logs error:", error);
+      res.status(500).json({ success: false, error: "Failed to acknowledge logs" });
+    }
+  });
+
   app.get("/api/parent/:id", async (req, res) => {
     try {
       const result = await storage.getParentWithStudents(req.params.id);
@@ -2020,60 +2075,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: "Failed to retrieve special needs",
       });
-    }
-  });
-
-  app.get("/api/parent/access-logs", async (req, res) => {
-    try {
-      const parentId = req.session.parentId;
-      if (!parentId) {
-        res.status(401).json({ success: false, error: "Not authenticated" });
-        return;
-      }
-
-      const logs = await storage.getSpecialNeedsAccessLogs(parentId);
-      res.json({ success: true, data: logs });
-    } catch (error) {
-      console.error("Get access logs error:", error);
-      res.status(500).json({ success: false, error: "Failed to fetch access logs" });
-    }
-  });
-
-  app.get("/api/parent/access-logs/unacknowledged-count", async (req, res) => {
-    try {
-      const parentId = req.session.parentId;
-      if (!parentId) {
-        res.status(401).json({ success: false, error: "Not authenticated" });
-        return;
-      }
-
-      const count = await storage.getUnacknowledgedAccessCount(parentId);
-      res.json({ success: true, data: { count } });
-    } catch (error) {
-      console.error("Get unacknowledged count error:", error);
-      res.status(500).json({ success: false, error: "Failed to fetch count" });
-    }
-  });
-
-  app.post("/api/parent/access-logs/acknowledge", async (req, res) => {
-    try {
-      const parentId = req.session.parentId;
-      if (!parentId) {
-        res.status(401).json({ success: false, error: "Not authenticated" });
-        return;
-      }
-
-      const { logIds } = req.body;
-      if (!Array.isArray(logIds)) {
-        res.status(400).json({ success: false, error: "logIds must be an array" });
-        return;
-      }
-
-      await storage.acknowledgeSpecialNeedsAccess(logIds);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Acknowledge access logs error:", error);
-      res.status(500).json({ success: false, error: "Failed to acknowledge logs" });
     }
   });
 
