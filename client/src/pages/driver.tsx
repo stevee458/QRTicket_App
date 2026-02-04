@@ -225,6 +225,9 @@ function DriverPageContent() {
   const [showOnboardList, setShowOnboardList] = useState(false);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   
+  // Camera permission state: 'unknown' | 'checking' | 'granted' | 'denied' | 'unavailable'
+  const [cameraPermission, setCameraPermission] = useState<'unknown' | 'checking' | 'granted' | 'denied' | 'unavailable'>('unknown');
+  
   // Autocomplete state
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Array<{ student: StudentWithStatus; parent: any }>>([]);
@@ -622,10 +625,53 @@ function DriverPageContent() {
     setQrInput("");
   };
 
-  const handleNextScan = () => {
-    setIsCameraActive(true);
+  // Check and request camera permission
+  const checkCameraPermission = useCallback(async (): Promise<boolean> => {
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraPermission('unavailable');
+      return false;
+    }
+
+    setCameraPermission('checking');
+
+    try {
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Stop the stream immediately - we just needed to get permission
+      stream.getTracks().forEach(track => track.stop());
+      setCameraPermission('granted');
+      return true;
+    } catch (error: any) {
+      console.error("Camera permission error:", error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setCameraPermission('denied');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        setCameraPermission('unavailable');
+      } else {
+        setCameraPermission('denied');
+      }
+      return false;
+    }
+  }, []);
+
+  const handleNextScan = async () => {
+    // If camera permission unknown, check it first
+    if (cameraPermission === 'unknown') {
+      const granted = await checkCameraPermission();
+      if (granted) {
+        setIsCameraActive(true);
+      }
+    } else if (cameraPermission === 'granted') {
+      setIsCameraActive(true);
+    }
+    // If denied/unavailable, don't activate camera - manual entry shown instead
     setLastScanResult(null);
     setQrInput("");
+  };
+
+  const handleRequestCameraAccess = async () => {
+    await checkCameraPermission();
   };
 
   const handleBackToMain = () => {
@@ -1344,21 +1390,55 @@ function DriverPageContent() {
                   </Alert>
                 )}
                 
-                {/* Primary action - Large circular Next Scan button */}
+                {/* Primary action - Camera permission handling */}
                 <div className="flex flex-col items-center gap-3 mb-6">
-                  <Button 
-                    onClick={handleNextScan} 
-                    className="h-32 w-32 rounded-full flex flex-col items-center justify-center gap-2 text-base font-semibold" 
-                    data-testid="button-next-scan"
-                    disabled={!gpsPermissionGranted}
-                  >
-                    <Camera className="w-8 h-8" />
-                    <span>Next Scan</span>
-                  </Button>
-                  {!gpsPermissionGranted && (
-                    <p className="text-sm text-muted-foreground text-center">
-                      Camera scanning disabled - Use Manual Entry below
-                    </p>
+                  {/* Camera permission handling */}
+                  {cameraPermission === 'denied' || cameraPermission === 'unavailable' ? (
+                    <>
+                      <div className="text-center p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                        <AlertCircle className="w-8 h-8 mx-auto text-orange-500 mb-2" />
+                        <p className="text-sm font-medium text-orange-700 dark:text-orange-400">
+                          {cameraPermission === 'unavailable' 
+                            ? "Camera not available on this device" 
+                            : "Camera access was denied"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Use Manual Entry below to search for students
+                        </p>
+                      </div>
+                      {cameraPermission === 'denied' && (
+                        <Button 
+                          variant="outline" 
+                          onClick={handleRequestCameraAccess}
+                          className="mt-2"
+                          data-testid="button-retry-camera"
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          Try Again
+                        </Button>
+                      )}
+                    </>
+                  ) : cameraPermission === 'checking' ? (
+                    <div className="flex flex-col items-center gap-2 p-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                      <p className="text-sm text-muted-foreground">Requesting camera access...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Button 
+                        onClick={handleNextScan} 
+                        className="h-32 w-32 rounded-full flex flex-col items-center justify-center gap-2 text-base font-semibold" 
+                        data-testid="button-next-scan"
+                      >
+                        <Camera className="w-8 h-8" />
+                        <span>Next Scan</span>
+                      </Button>
+                      {!gpsPermissionGranted && (
+                        <p className="text-sm text-muted-foreground text-center">
+                          GPS unavailable - scans will record without location
+                        </p>
+                      )}
+                    </>
                   )}
                   <Button 
                     variant="outline" 
@@ -1369,8 +1449,8 @@ function DriverPageContent() {
                   </Button>
                 </div>
                 
-                {/* Collapsible Manual Entry - Secondary fallback option */}
-                <Collapsible open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
+                {/* Collapsible Manual Entry - Auto-open when camera unavailable */}
+                <Collapsible open={isManualEntryOpen || cameraPermission === 'denied' || cameraPermission === 'unavailable'} onOpenChange={setIsManualEntryOpen}>
                   <div className="pt-4 border-t">
                     <CollapsibleTrigger asChild>
                       <Button 
@@ -1379,7 +1459,7 @@ function DriverPageContent() {
                         data-testid="button-toggle-manual-entry"
                       >
                         <div className="flex items-center gap-2">
-                          <ChevronDown className={`h-4 w-4 transition-transform ${isManualEntryOpen ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isManualEntryOpen || cameraPermission === 'denied' || cameraPermission === 'unavailable' ? 'rotate-180' : ''}`} />
                           <span className="text-sm font-medium">Manual Entry</span>
                         </div>
                       </Button>
