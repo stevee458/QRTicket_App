@@ -193,6 +193,11 @@ The application uses a relational schema with two main tables:
 - **Trip History**: View student boarding/alighting history
   - Filterable by date range (today, this week, last week, this month, custom)
   - Shows timestamp, location, driver, vehicle, and shift details
+- **Special Needs Access History**: Privacy notification system
+  - Shows who viewed children's special needs information
+  - Displays viewer name, role, context, and timestamp
+  - Badge count for unacknowledged access events
+  - "Mark All as Reviewed" button to acknowledge logs
 
 ### Transport Management System
 - **Vehicles**: Bus number, registration, depot management
@@ -216,6 +221,9 @@ The application uses a relational schema with two main tables:
   - 30-second retry after failed submissions
 - **Real-time Status**: Connection indicator, pending scans counter, sync timestamps
 - **Onboard Tracking**: View currently boarded students
+- **Special Needs Viewing**: Access student special needs with privacy warning
+  - Warning dialog before viewing sensitive information
+  - All access logged and parent notified
 
 ### Admin Dashboard
 - **Stats Cards**: Real-time counts displayed at top of admin portal
@@ -226,6 +234,7 @@ The application uses a relational schema with two main tables:
 - **Student Search**: Quick search with autocomplete
   - Type student name to find instantly
   - Shows student details, parent info, and current status
+  - View special needs with privacy warning dialog
 - **Trip History**: View any student's trip history
   - Same date filtering as Parent Portal (today, this week, last week, custom)
   - Shows both bus and venue activity
@@ -235,6 +244,10 @@ The application uses a relational schema with two main tables:
 - **Recent Activity Feed**: Latest scans across all drivers and venues
   - Shows scan type, location, and timestamp
   - Auto-refreshes every 10 seconds
+- **Special Needs Access**: Privacy-protected viewing
+  - Warning dialog before accessing sensitive information
+  - All access logged with viewer name, role, and context
+  - Parents notified via in-app access history
 
 ### Scan Data Capture
 Each QR scan records:

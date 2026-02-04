@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Calendar, AlertTriangle, Download, CheckCircle, Flag } from "lucide-react";
+import { LogOut, Calendar, AlertTriangle, Download, CheckCircle, Flag, ShieldAlert, Eye, Bell } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,6 +78,17 @@ interface Scan {
   staff?: { id: string; name: string } | null;
 }
 
+interface AccessLog {
+  id: string;
+  studentId: string;
+  studentName: string;
+  viewerName: string;
+  viewerRole: string;
+  viewerContext: string | null;
+  viewedAt: string;
+  acknowledged: boolean;
+}
+
 export default function Parent() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -97,6 +108,44 @@ export default function Parent() {
   const { data: studentsData } = useQuery<any>({
     queryKey: ["/api/parent/students"],
     enabled: !!session,
+  });
+
+  const { data: accessLogsData, refetch: refetchAccessLogs } = useQuery<{ success: boolean; data: AccessLog[] }>({
+    queryKey: ["/api/parent/access-logs"],
+    enabled: !!session,
+    refetchInterval: 60000,
+  });
+
+  const { data: unacknowledgedCountData } = useQuery<{ success: boolean; data: { count: number } }>({
+    queryKey: ["/api/parent/access-logs/unacknowledged-count"],
+    enabled: !!session,
+    refetchInterval: 60000,
+  });
+
+  const acknowledgeAccessMutation = useMutation({
+    mutationFn: async (logIds: string[]) => {
+      const response = await fetch("/api/parent/access-logs/acknowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logIds }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parent/access-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/parent/access-logs/unacknowledged-count"] });
+      toast({
+        title: "Acknowledged",
+        description: "Access history marked as reviewed",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to acknowledge access logs",
+        variant: "destructive",
+      });
+    },
   });
 
   useEffect(() => {
@@ -415,6 +464,17 @@ export default function Parent() {
           <TabsList>
             <TabsTrigger value="students" data-testid="tab-students">My Students</TabsTrigger>
             <TabsTrigger value="history" data-testid="tab-history">Trip History</TabsTrigger>
+            <TabsTrigger value="access" data-testid="tab-access" className="relative">
+              Access History
+              {unacknowledgedCountData?.data?.count && unacknowledgedCountData.data.count > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                >
+                  {unacknowledgedCountData.data.count}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="students" className="space-y-4">
@@ -665,6 +725,93 @@ export default function Parent() {
                 {!selectedStudent && (
                   <div className="text-center py-8 text-muted-foreground">
                     Select a student to view trip history
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="access" className="space-y-4">
+            <Card className="border-t-4 border-t-amber-500 shadow-sm">
+              <CardHeader className="bg-amber-500/5">
+                <CardTitle className="flex items-center gap-2 text-amber-600">
+                  <ShieldAlert className="h-5 w-5" />
+                  Special Needs Access History
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground mb-4">
+                  This section shows who has viewed your children's special needs information. 
+                  All access to this sensitive data is logged to protect your family's privacy.
+                </p>
+
+                {accessLogsData?.data && accessLogsData.data.length > 0 ? (
+                  <>
+                    {accessLogsData.data.filter(log => !log.acknowledged).length > 0 && (
+                      <div className="flex justify-end mb-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const unacknowledgedIds = accessLogsData.data
+                              .filter(log => !log.acknowledged)
+                              .map(log => log.id);
+                            acknowledgeAccessMutation.mutate(unacknowledgedIds);
+                          }}
+                          disabled={acknowledgeAccessMutation.isPending}
+                          data-testid="button-acknowledge-all"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          {acknowledgeAccessMutation.isPending ? "Processing..." : "Mark All as Reviewed"}
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {accessLogsData.data.map((log) => (
+                        <div
+                          key={log.id}
+                          className={`p-4 border rounded-lg ${!log.acknowledged ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800' : ''}`}
+                          data-testid={`access-log-${log.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Eye className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium">{log.viewerName}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {log.viewerRole === 'admin' ? 'Admin' : 
+                                   log.viewerRole === 'driver' ? 'Driver' : 
+                                   log.viewerRole === 'venue_staff' ? 'Venue Staff' : log.viewerRole}
+                                </Badge>
+                                {!log.acknowledged && (
+                                  <Badge variant="destructive" className="text-xs">New</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Viewed <strong>{log.studentName}</strong>'s special needs information
+                              </p>
+                              {log.viewerContext && (
+                                <p className="text-xs text-muted-foreground mt-1">{log.viewerContext}</p>
+                              )}
+                            </div>
+                            <div className="text-right text-sm text-muted-foreground flex-shrink-0">
+                              {format(new Date(log.viewedAt), "MMM d, yyyy")}
+                              <br />
+                              {format(new Date(log.viewedAt), "h:mm a")}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No access history yet</p>
+                    <p className="text-sm mt-1">
+                      When staff members view your children's special needs information, it will appear here
+                    </p>
                   </div>
                 )}
               </CardContent>
