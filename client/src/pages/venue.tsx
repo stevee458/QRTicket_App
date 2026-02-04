@@ -649,37 +649,54 @@ function VenuePageContent() {
         setIsCameraActive(false);
         setLastScanResult(message);
         refetchAtVenue();
-      } catch (error) {
-        setPendingScans(prev => {
-          const updated = [...prev, scan];
-          localStorage.setItem("venuePendingScans", JSON.stringify(updated));
-          return updated;
-        });
+      } catch (error: any) {
+        // Check if it's a "student not found" error - don't queue these
+        const errorData = error?.error || error?.message || "";
+        const isStudentNotFound = errorData === "STUDENT_NOT_FOUND" || 
+          (typeof errorData === "string" && errorData.toLowerCase().includes("student not found"));
         
-        toast({
-          title: "Queued for Sync",
-          description: `${message} - Will sync when connection improves`,
-        });
-        
-        if (syncTimerRef.current) {
-          clearTimeout(syncTimerRef.current);
-        }
-        syncTimerRef.current = setTimeout(() => {
-          const savedScans = localStorage.getItem("venuePendingScans");
-          if (savedScans) {
-            try {
-              const scans = JSON.parse(savedScans);
-              if (scans.length > 0 && syncPendingScansRef.current) {
-                syncPendingScansRef.current();
-              }
-            } catch (err) {
-              console.error("Error checking pending scans for sync:", err);
-            }
+        if (isStudentNotFound) {
+          // Student doesn't exist - show error, don't queue
+          toast({
+            title: "Student Not Found",
+            description: "This QR code is not registered in the system",
+            variant: "destructive",
+          });
+          setIsCameraActive(false);
+          setLastScanResult("Student not found - QR not recognized");
+        } else {
+          // Network/other error - queue for later sync
+          setPendingScans(prev => {
+            const updated = [...prev, scan];
+            localStorage.setItem("venuePendingScans", JSON.stringify(updated));
+            return updated;
+          });
+          
+          toast({
+            title: "Queued for Sync",
+            description: `${message} - Will sync when connection improves`,
+          });
+          
+          if (syncTimerRef.current) {
+            clearTimeout(syncTimerRef.current);
           }
-        }, 30000);
-        
-        setIsCameraActive(false);
-        setLastScanResult(message + " (Queued)");
+          syncTimerRef.current = setTimeout(() => {
+            const savedScans = localStorage.getItem("venuePendingScans");
+            if (savedScans) {
+              try {
+                const scans = JSON.parse(savedScans);
+                if (scans.length > 0 && syncPendingScansRef.current) {
+                  syncPendingScansRef.current();
+                }
+              } catch (err) {
+                console.error("Error checking pending scans for sync:", err);
+              }
+            }
+          }, 30000);
+          
+          setIsCameraActive(false);
+          setLastScanResult(message + " (Queued)");
+        }
       }
     } else {
       setPendingScans(prev => {
