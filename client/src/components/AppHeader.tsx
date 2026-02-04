@@ -22,7 +22,8 @@ export default function AppHeader() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/me"] });
+      // Remove cached data completely to prevent auto-login on return
+      queryClient.removeQueries({ queryKey: ["/api/admin/me"] });
       toast({
         title: "Logged out",
         description: "You have been logged out successfully",
