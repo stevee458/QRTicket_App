@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check, MapPin } from "lucide-react";
+import { Loader2, LogOut, Users, WifiOff, Wifi, RefreshCw, Camera, AlertCircle, CheckCircle2, ChevronDown, Check, MapPin, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 // Html5Qrcode is dynamically imported to prevent crashes on devices without camera
 type Html5QrcodeType = import("html5-qrcode").Html5Qrcode;
@@ -244,6 +244,12 @@ function VenuePageContent() {
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const watchIdRef = useRef<number | null>(null);
   const currentLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  
+  // Special needs viewing state
+  const [showSpecialNeedsWarning, setShowSpecialNeedsWarning] = useState(false);
+  const [specialNeedsStudent, setSpecialNeedsStudent] = useState<{ id: string; name: string } | null>(null);
+  const [specialNeedsData, setSpecialNeedsData] = useState<{ studentName: string; specialNeeds: string | null } | null>(null);
+  const [loadingSpecialNeeds, setLoadingSpecialNeeds] = useState(false);
   
   const [showForceDialog, setShowForceDialog] = useState(false);
   const [forceScanData, setForceScanData] = useState<{ studentId: string; studentName: string; scanType: "In" | "Out" } | null>(null);
@@ -580,6 +586,44 @@ function VenuePageContent() {
     setIsCameraActive(false);
     setLastScanResult(null);
     setQrInput("");
+  };
+
+  const handleViewSpecialNeeds = async () => {
+    if (!specialNeedsStudent || !session) return;
+    
+    setLoadingSpecialNeeds(true);
+    try {
+      const response = await fetch(`/api/students/${specialNeedsStudent.id}/special-needs/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          viewerName: session.staff.name,
+          viewerRole: "venue_staff",
+          viewerContext: `Venue: ${session.venue.name}`,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSpecialNeedsData(data.data);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to retrieve special needs information",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to retrieve special needs information",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingSpecialNeeds(false);
+      setShowSpecialNeedsWarning(false);
+    }
   };
 
   const handleNextScan = async () => {
@@ -1471,12 +1515,25 @@ function VenuePageContent() {
                 atVenueData.data.map((student) => (
                   <Card key={student.id}>
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold">{student.name}</p>
-                          <p className="text-sm text-muted-foreground">{student.school}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{student.name}</p>
+                          <p className="text-sm text-muted-foreground truncate">{student.school}</p>
                         </div>
-                        <Badge>{student.status || "At Venue"}</Badge>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSpecialNeedsStudent({ id: student.id, name: student.name });
+                              setShowSpecialNeedsWarning(true);
+                            }}
+                            data-testid={`button-view-special-needs-${student.id}`}
+                          >
+                            <ShieldAlert className="w-4 h-4" />
+                          </Button>
+                          <Badge>{student.status || "At Venue"}</Badge>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1524,6 +1581,63 @@ function VenuePageContent() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Special Needs Warning Dialog */}
+        <AlertDialog open={showSpecialNeedsWarning} onOpenChange={setShowSpecialNeedsWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-amber-600" />
+                Privacy Notice
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 text-left">
+                <p>
+                  You are about to view sensitive special needs information for{" "}
+                  <strong>{specialNeedsStudent?.name}</strong>.
+                </p>
+                <p>
+                  This access will be logged and the student's parent/guardian will be notified.
+                  Please only view this information if it is necessary for the student's care and safety.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-special-needs">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleViewSpecialNeeds}
+                disabled={loadingSpecialNeeds}
+                data-testid="button-confirm-special-needs"
+              >
+                {loadingSpecialNeeds ? "Loading..." : "I Understand, View Information"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Special Needs Display Dialog */}
+        <Dialog open={!!specialNeedsData} onOpenChange={() => setSpecialNeedsData(null)}>
+          <DialogContent data-testid="dialog-special-needs">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-amber-600" />
+                Special Needs Information
+              </DialogTitle>
+              <DialogDescription>
+                {specialNeedsData?.studentName}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-4 bg-muted/50 rounded-lg">
+              {specialNeedsData?.specialNeeds ? (
+                <p>{specialNeedsData.specialNeeds}</p>
+              ) : (
+                <p className="text-muted-foreground italic">No special needs information recorded</p>
+              )}
+            </div>
+            <Button onClick={() => setSpecialNeedsData(null)} data-testid="button-close-special-needs">
+              Close
+            </Button>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
